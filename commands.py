@@ -51,7 +51,15 @@ class Commands:
     def _t(self, pt, en, lang):
         return en if lang == 'en' else pt
 
-    def parse(self, text, hint_lang=None):
+    def parse(self, text, hint_lang=None, via=None):
+        raw = text
+        if via == 'voz':
+            try:
+                corr = brain.correct_transcript(text)
+                if corr and corr.strip() and corr.strip().lower() != text.strip().lower():
+                    text = corr.strip()
+            except Exception:
+                pass
         low = text.strip().lower()
         if not low:
             lang = hint_lang or 'pt'
@@ -60,9 +68,11 @@ class Commands:
         lang = hint_lang or self._detect_lang(text)
         now = time.time()
 
-        # Registra TUDO que o usuário falar (memória persistente em disco)
+        # Registra TUDO que o usuário falar (memória persistente, bruto + corrigido)
         try:
             brain.log_user(text, lang)
+            if via == 'voz' and raw != text:
+                brain.log_user('[voz bruta] ' + raw, lang)
         except Exception:
             pass
 
@@ -74,6 +84,27 @@ class Commands:
 
         # Mantém modo contínuo por 30s após qualquer interação
         self.active_until = now + 30
+
+        # Análise/leitura de imagem com IA de visão
+        if re.search(r'\b(analis\w*|lei\w*|olh\w*|v[ée]|descrev\w*|observ\w*|interpret\w*)\b.*\b(imagens?|fotos?|prints?|screenshot|capturas?)\b', low) \
+                or re.search(r'\b(imagens?|fotos?|prints?|screenshot|capturas?)\b.{0,30}\b(analis\w*|lei\w*|olh\w*|descrev\w*|observ\w*)\b', low):
+            m_path = re.search(r'(?:[a-zA-Z]:)?[\\/][^"*?<>|]+?\.(?:png|jpe?g|jpe?g|webp|gif|bmp)', cmd, re.IGNORECASE)
+            if m_path:
+                resp_img = None
+                try:
+                    resp_img = brain.analyze_image(m_path.group(0).strip(), text)
+                except Exception:
+                    resp_img = None
+                if resp_img:
+                    return self._t('👁️ Análise da imagem:\n', '👁️ Image analysis:\n', lang) + resp_img, lang
+                return self._t(
+                    'Não consegui usar IA de visão agora. Abra ⚙️ IA e cadastre Groq/Gemini/OpenAI/Anthropic.'
+                    ' Caminho verificado: ' + m_path.group(0),
+                    'Vision AI unavailable. Add a free Groq/Gemini key in ⚙️ IA.',
+                    lang), lang
+            return self._t(
+                'Me diga o caminho da imagem. Ex: analise a imagem C:\\Users\\joilton\\Downloads\\foto.png',
+                'Give the image path, e.g.: analyze image C:\\...\\photo.png', lang), lang
 
         # Comandos específicos
         if re.match(r'^(abrir|abra|abre|abri|abrir[a-z]*|acessar|acesse|acessar|open|access)\s+', lcmd := cmd.lower()):
@@ -164,8 +195,8 @@ class Commands:
             return self._t(f"Abrindo {alvo} no navegador.", f"Opening {alvo} in browser.", lang)
 
         if 'youtube' in chave:
-            resto = re.sub(r'\b(?:youtube|canais?|v[íi]deos?|perfil|p[áa]gina)\b', ' ', alvo, flags=re.IGNORECASE)
-            resto = re.sub(r'\b(?:o|a|os|as|um|uma|no|na|do|da|dos|das|de|para|pra|por|com|sobre|meu|minha|tal)\b', ' ',
+            resto = re.sub(r'\b(?:youtube|canais?|v[íi]deos?|perfil|p[áa]gina|abre?|abra|abri[rz]?|aberto)\b', ' ', alvo, flags=re.IGNORECASE)
+            resto = re.sub(r'\b(?:o|a|os|as|um|uma|no|na|do|da|dos|das|de|para|pra|mim|por|com|sobre|meu|minha|tal)\b', ' ',
                            resto, flags=re.IGNORECASE).strip()
             resto = re.sub(r'\s+', ' ', resto)
             if resto:
@@ -216,23 +247,32 @@ class Commands:
                 conteudo = jogo_rpg_html()
                 tipo = self._t('RPG 2D', 'RPG 2D', lang)
             else:
-                tema = 'cyberpunk'
-                if re.search(r'romantic|amor|namora|cora[çc][ãa]o|beijo|sigilo', baixo):
-                    tema = 'romantico'
-                elif re.search(r'natureza|floresta|verde|jardim|planta', baixo):
-                    tema = 'natureza'
-                elif re.search(r'espac|galaxis?|galaxia|estrela|cosmos', baixo):
-                    tema = 'espaco'
-                titulo = None
-                m_t = re.search(r'(?:chamado|intitulado|titulo|t[íi]tulo)\s+["\']?([^"\'\.,;]+)', baixo)
-                if m_t:
-                    titulo = m_t.group(1).strip().title()
-                legenda = None
-                m_l = re.search(r'legenda\s+(?:[a-z]+\s+)?(?:[a-z]+\s+)?([a-z0-9â-ú\s]{1,80}?)(?=\s*[,;.]|$)', baixo)
-                if m_l:
-                    legenda = m_l.group(1).strip().capitalize()
-                conteudo = site_html(tema, titulo, legenda)
-                tipo = self._t(f"site (tema: {tema})", f"site (theme: {tema})", lang)
+                custom = None
+                try:
+                    custom = brain.generate_site(cmd, lang)
+                except Exception:
+                    custom = None
+                if custom:
+                    conteudo = custom
+                    tipo = self._t('site PERSONALIZADO pela IA', 'AI-CUSTOM site', lang)
+                else:
+                    tema = 'cyberpunk'
+                    if re.search(r'romantic|amor|namora|cora[çc][ãa]o|beijo|sigilo', baixo):
+                        tema = 'romantico'
+                    elif re.search(r'natureza|floresta|verde|jardim|planta', baixo):
+                        tema = 'natureza'
+                    elif re.search(r'espac|galaxis?|galaxia|estrela|cosmos', baixo):
+                        tema = 'espaco'
+                    titulo = None
+                    m_t = re.search(r'(?:chamado|intitulado|titulo|t[íi]tulo)\s+["\']?([^"\'\.,;]+)', baixo)
+                    if m_t:
+                        titulo = m_t.group(1).strip().title()
+                    legenda = None
+                    m_l = re.search(r'legenda\s+(?:[a-z]+\s+)?(?:[a-z]+\s+)?([a-z0-9â-ú\s]{1,80}?)(?=\s*[,;.]|$)', baixo)
+                    if m_l:
+                        legenda = m_l.group(1).strip().capitalize()
+                    conteudo = site_html(tema, titulo, legenda)
+                    tipo = self._t(f"site (tema: {tema}) [template básico]", f"site (theme: {tema}) [basic template]", lang)
             result = self.fs.write(str(caminho), conteudo)
             if result.get('error'):
                 return self._t(f"Erro ao criar: {result['error']}", f"Error creating: {result['error']}", lang)

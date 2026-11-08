@@ -184,6 +184,130 @@ def _eh_pergunta_de_fato(text):
                          text.strip(), re.IGNORECASE))
 
 
+def _quick_chat(syscontent, usercontent, timeout):
+    """Chat rápido: provedor do usuário (se configurado) senão público gratuito."""
+    cfg = get_provider()
+    if cfg.get('provider') not in (None, '', 'auto') and (cfg.get('key_hint') or cfg.get('provider') == 'ollama'):
+        try:
+            with open(PROVIDER_FILE, 'r', encoding='utf-8') as f:
+                cfg_real = json.load(f)
+            r = _call_provider(cfg_real, syscontent, '', usercontent)
+            if r:
+                return r
+        except Exception:
+            pass
+    try:
+        d = _post_json('https://text.pollinations.ai/openai', {
+            'model': 'openai',
+            'messages': [{'role': 'system', 'content': syscontent},
+                         {'role': 'user', 'content': usercontent}]}, timeout)
+        return d.get('choices', [{}])[0].get('message', {}).get('content')
+    except Exception:
+        return None
+
+
+def correct_transcript(text):
+    """Conserta a transcrição do Google (nomes próprios/slangelados errados: 'mister coin' -> nome real)."""
+    if not text or len(text.strip()) < 4 or len(text) > 300:
+        return text
+    sys = ("Você recebe uma transcrição de voz (pt-BR ou inglês) feita pelo reconhecedor do Google, "
+           "que erra nomes próprios e gírias. Corrija APENAS erros óbvios de ditado mantendo o sentido EXATO, "
+           "o idioma e o formato de comando. Devolva SOMENTE o texto corrigido, sem explicação, sem aspas.")
+    try:
+        r = _quick_chat(sys, text, 14)
+        if r:
+            r = r.strip().strip('"').strip()
+            if r and 4 <= len(r) <= 300:
+                return r
+    except Exception:
+        pass
+    return text
+
+
+def generate_site(cmd, lang='pt'):
+    """Gera um site/aplicativo ÚNICO-PESONALIZADO pela IA (não template). Devolve HTML ou None."""
+    sysp = ("Você gera SITES/APLICATIVOS HTML completos em UM ÚNICO arquivo, no idioma do usuário. "
+            "Siga EXATAMENTE o que ele pediu (tema, cores, textos, nome específicos). "
+            "Faça VISUALMENTE EXCELENTE: CSS moderno, animações suaves, particles/emojis, tipografia, responsivo. "
+            "Devolva APENAS o código HTML completo começando por <!DOCTYPE html>, sem explicações e sem blocos markdown.")
+    try:
+        out = _quick_chat(sysp, cmd, 120)
+        if not out:
+            return None
+        m = re.search(r'```(?:html)?\s*(<!DOCTYPE[\s\S]*?</html>)\s*```', out, re.IGNORECASE)
+        if m:
+            out = m.group(1)
+        out = out.strip()
+        if '<!doctype' not in out.lower()[:300] and '<html' not in out.lower()[:300]:
+            return None
+        return out
+    except Exception:
+        return None
+
+
+def analyze_image(path, question=''):
+    """Lê/analisa imagens com IA de visão (chave própria ou público)."""
+    from base64 import b64encode
+    from pathlib import Path
+    try:
+        p = Path(path).expanduser()
+        if not p.exists():
+            return "Arquivo não encontrado: " + str(path)
+        mime = {'.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg',
+                '.webp': 'image/webp', '.gif': 'image/gif', '.bmp': 'image/bmp'}
+        ext = p.suffix.lower()
+        if ext not in mime:
+            return "Formato não suportado para análise visual."
+        if p.stat().st_size > 8 * 1024 * 1024:
+            return "Imagem grande demais para analisar (limite 8MB)."
+        data = 'data:' + mime[ext] + ';base64,' + b64encode(p.read_bytes()).decode('ascii')
+        pergunta = question or "Descreva esta imagem em detalhes, em português."
+        sysp = "Você é a visão do JARVIS: analisa imagens com precisão e no idioma do usuário."
+
+        cfg = get_provider()
+        if cfg.get('provider') == 'anthropic':
+            with open(PROVIDER_FILE, 'r', encoding='utf-8') as f:
+                cfg_real = json.load(f)
+            d = _post_json('https://api.anthropic.com/v1/messages',
+                           {'model': cfg_real.get('model') or 'claude-sonnet-4-20250514', 'max_tokens': 1500,
+                            'system': sysp,
+                            'messages': [{'role': 'user', 'content': [
+                                {'type': 'image', 'source': {'type': 'base64', 'media_type': mime[ext],
+                                                             'data': data.split(',', 1)[1]}},
+                                {'type': 'text', 'text': pergunta}]}]}, 90,
+                           {'x-api-key': cfg_real.get('key', ''), 'anthropic-version': '2023-06-01'})
+            return (d.get('content') or [{}])[0].get('text')
+        if cfg.get('provider') == 'gemini':
+            with open(PROVIDER_FILE, 'r', encoding='utf-8') as f:
+                cfg_real = json.load(f)
+            url = (f"https://generativelanguage.googleapis.com/v1beta/models/"
+                   f"{cfg_real.get('model') or 'gemini-2.0-flash'}:generateContent?key={urllib.parse.quote(cfg_real.get('key', ''))}")
+            d = _post_json(url, {'contents': [{'role': 'user', 'parts': [
+                {'inline_data': {'mime_type': mime[ext], 'data': data.split(',', 1)[1]}},
+                {'text': pergunta}]}]}, 90)
+            parts = d.get('candidates', [{}])[0].get('content', {}).get('parts', [])
+            return parts[0].get('text') if parts else None
+
+        # openai, groq, auto (grátis) e ollama: formato OpenAI com image_url (base64 data URI)
+        provider = cfg.get('provider')
+        url = 'https://text.pollinations.ai/openai'
+        headers = {}
+        model = 'openai'
+        if provider == 'openai':
+            url = 'https://api.openai.com/v1/chat/completions'
+            with open(PROVIDER_FILE, 'r', encoding='utf-8') as f:
+                cfg_real = json.load(f)
+            headers = {'Authorization': 'Bearer ' + cfg_real.get('key', '')}
+            model = cfg_real.get('model') or 'gpt-4o-mini'
+        d = _post_json(url, {'model': model, 'max_tokens': 1200, 'messages': [
+            {'role': 'system', 'content': sysp},
+            {'role': 'user', 'content': [{'type': 'text', 'text': pergunta},
+                                         {'type': 'image_url', 'image_url': {'url': data}}]}]}, 90, headers)
+        return (d.get('choices', [{}])[0].get('message', {}) or {}).get('content')
+    except Exception:
+        return None
+
+
 # ---------------- pergunta ao cérebro ----------------
 def ask(text, lang_hint='pt'):
     """Retorna (resposta, acoes). acoes = lista de tuplas ('OPEN'|'RUN'|'SITE', valor)."""
@@ -227,8 +351,8 @@ def ask(text, lang_hint='pt'):
                 break
             time.sleep(2)
 
-    # 4) Último reforço: Wikipédia para qualquer frase
-    if not content:
+    # 4) Último reforço: Wikipédia SOMENTE para perguntas de fato (evita lixo aleatório)
+    if not content and _eh_pergunta_de_fato(text):
         content = _wiki_answer(text, lang_hint)
 
     if not content:

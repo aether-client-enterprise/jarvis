@@ -358,7 +358,7 @@ async function send(text, viaVoz) {
   thinking = true; tickState();
   try {
     const r = await fetch('/chat', { method: 'POST', headers: {'Content-Type':'application/json'},
-      body: JSON.stringify({ message: text }) });
+      body: JSON.stringify({ message: text, via: viaVoz ? 'voz' : 'texto' }) });
     const d = await r.json();
     thinking = false; tickState();
     addLog('JARVIS', d.reply || ('Erro: ' + (d.error || '?')));
@@ -413,6 +413,11 @@ async function micLoop() {
           send(stripWake(t) || t, true);
           micOn = false; syncMicBtn(); break;   // depois do wake, exige nova ativação
         } else {
+          const corrCue = /quis dizer|quero dizer|errei|foi mal|corrig|falei errado|dizer o|dizer no|dizer pra|queria/i.test(t);
+          if (corrCue) {
+            send(t, true);            // correção verbal do último comando: aceita sem wake
+            micOn = false; syncMicBtn(); break;
+          }
           sys('Ignorado (sem wake word): "' + t + '"');
         }
       }

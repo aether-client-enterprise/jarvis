@@ -17,3 +17,9 @@ Thumbs.db
 
 # Jarvis local
 projeto_jarvis.html
+
+# Chaves e configs locais (nunca publicar)
+api_config.json
+voice_config.json
+moria_local/
+

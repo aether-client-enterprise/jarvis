@@ -42,6 +42,7 @@ STATIC_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static")
 class ChatMessage(BaseModel):
     message: str
     lang: str | None = None
+    via: str | None = None
 
 
 class VoiceSelect(BaseModel):
@@ -58,7 +59,7 @@ def root():
 
 @app.post("/chat")
 def chat(msg: ChatMessage):
-    reply, detected_lang = commands.parse(msg.message, hint_lang=msg.lang)
+    reply, detected_lang = commands.parse(msg.message, hint_lang=msg.lang, via=msg.via)
     voice.speak(reply[:400], lang=detected_lang)  # fala em background; resposta volta instantânea
     return {"reply": reply, "lang": detected_lang}
 
