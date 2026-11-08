@@ -81,6 +81,32 @@ def _load_mem(max_lines=40, want_more=False):
     return '\n'.join(out)
 
 
+def _wiki_answer(text, lang='pt'):
+    """Conhecimento garantido via Wikipédia (sem chave) quando os LLMs falham."""
+    try:
+        dom = 'pt' if lang != 'en' else 'en'
+        q = re.sub(r'[?!.]+$', '', text.strip())
+        q = re.sub(r'^(quem|o que|qual|when|what|who|where)\s+(?:e|é|foi|são|sao|was|is|are|does|did)?\s*', '', q, flags=re.IGNORECASE).strip()
+        u = f'https://{dom}.wikipedia.org/w/rest.php/v1/search/page?q={urllib.parse.quote(q)}&limit=1'
+        req = urllib.request.Request(u, headers={'User-Agent': 'JarvisLocal/2'})
+        with urllib.request.urlopen(req, timeout=12) as r:
+            res = json.loads(r.read().decode('utf-8', errors='replace'))
+        if not res.get('pages'):
+            return None
+        title = urllib.parse.quote(res['pages'][0]['key'])
+        u2 = f'https://{dom}.wikipedia.org/api/rest_v1/page/summary/{title}'
+        req2 = urllib.request.Request(u2, headers={'User-Agent': 'JarvisLocal/2'})
+        with urllib.request.urlopen(req2, timeout=12) as r2:
+            smry = json.loads(r2.read().decode('utf-8', errors='replace'))
+        extract = smry.get('extract')
+        if not extract:
+            return None
+        fonte = smry.get('content_urls', {}).get('desktop', {}).get('page', '')
+        return '📖 ' + extract + (f'\n\nFonte: {fonte}' if fonte else '')
+    except Exception:
+        return None
+
+
 # ---------------- pergunta ao cérebro ----------------
 def ask(text, lang_hint='pt'):
     """Retorna (resposta, acoes). acoes = lista de tuplas ('OPEN'|'RUN'|'SITE', valor).
@@ -93,29 +119,37 @@ def ask(text, lang_hint='pt'):
 
     content = None
     for modelo in ('openai', 'mistral'):
-        for tentativa in range(2):
-            try:
-                data = _post_json('https://text.pollinations.ai/openai', {
-                    'model': modelo,
-                    'messages': [
-                        {'role': 'system', 'content': sysmsg + '\n\nMEMÓRIA RECENTE:\n' + mem},
-                        {'role': 'user', 'content': text},
-                    ],
-                })
-                content = data.get('choices', [{}])[0].get('message', {}).get('content')
-            except Exception:
-                content = None
-            if content:
-                break
-            time.sleep(4)  # API pública gratuita limita chamadas seguidas: respirar e tentar de novo
+        try:
+            data = _post_json('https://text.pollinations.ai/openai', {
+                'model': modelo,
+                'messages': [
+                    {'role': 'system', 'content': sysmsg + '\n\nMEMÓRIA RECENTE:\n' + mem},
+                    {'role': 'user', 'content': text},
+                ],
+            }, 32)
+            content = data.get('choices', [{}])[0].get('message', {}).get('content')
+        except Exception:
+            content = None
+        if content:
+            break
+        time.sleep(3)  # API pública gratuita limita chamadas: respirar antes da próxima
+
     if not content:
+        # fallback GET simples (prompt menor)
         try:
             mini_sys = ("Responda no mesmo idioma do usuário, como o JARVIS (assistente com acesso ao PC). "
                         "Se o pedido for ação, termine com [RUN: ...] ou [OPEN: ...] ou [SITE: ...].\n\n"
                         "MEMÓRIA:\n" + mem[-900:] + "\n\nUsuário: " + text)
-            content = _get_text('https://text.pollinations.ai/' + urllib.parse.quote(mini_sys), 90)
+            content = _get_text('https://text.pollinations.ai/' + urllib.parse.quote(mini_sys), 25)
         except Exception:
-            return None, []
+            content = None
+
+    if not content:
+        # reforço garantido: Wikipedia (API pública, sem chave) para perguntas de conhecimento
+        content = _wiki_answer(text, lang_hint)
+
+    if not content:
+        return None, []
 
     acoes = []
     for pat, tipo in ((r'\[(?:RUN|EXEC)\s*:\s*([^\]]+)\]', 'RUN'),

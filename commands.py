@@ -76,7 +76,7 @@ class Commands:
         self.active_until = now + 30
 
         # Comandos específicos
-        if re.match(r'^(abrir|acessar|open|access)\s+', lcmd := cmd.lower()):
+        if re.match(r'^(abrir|abra|abre|abri|abrir[a-z]*|acessar|acesse|acessar|open|access)\s+', lcmd := cmd.lower()):
             alvo = re.sub(r'^(abrir|acessar|open|access)\s+', '', cmd, flags=re.IGNORECASE).strip()
             return self._abrir(alvo, lang), lang
 
@@ -143,6 +143,11 @@ class Commands:
         return self._chat_free(text, lang), lang
 
     def _abrir(self, alvo, lang):
+        # Normaliza pedidos como "abra o site da NASA" -> "nasa"
+        limpo = re.sub(r'^(?:o\s+|a\s+)?(?:site|pagina|p[áa]gina|p[áa]g)\s+(?:da|do|de|doa?|pel[oa]|para|pra|to)?\s*',
+                       '', alvo.strip(), flags=re.IGNORECASE).strip()
+        if limpo:
+            alvo = limpo
         mapa = {
             'youtube': 'https://www.youtube.com',
             'instagram': 'https://www.instagram.com',
