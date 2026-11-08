@@ -66,6 +66,25 @@ def fila_job(prompt, lang='pt'):
     return jd['id']
 
 
+def _vigia():
+    """Jobs 'fazendo' há mais de 15 min (thread morta/travada) viram erro e saem do loop."""
+    limite_ms = 25 * 60 * 1000
+    agora_ms = int(time.time() * 1000)
+    mudou = False
+    with _trava:
+        for t in _tarefas.values():
+            if t.get('status') == 'fazendo':
+                try:
+                    if agora_ms - int(t.get('id', '0')) > limite_ms:
+                        t['status'] = 'erro'
+                        t['erro'] = 'geração passou do tempo — peça "tenta de novo" para eu refazer'
+                        mudou = True
+                except Exception:
+                    pass
+        if mudou:
+            _salvar()
+
+
 def tem_ultimo():
     """Há qualquer registro (gerando, pronto ou erro)? Para dar resumo imediato."""
     return bool(_tarefas)
@@ -73,6 +92,7 @@ def tem_ultimo():
 
 def status():
     """Lista resumida para o endpoint /criacoes (a HUD mostra quando ficar pronto)."""
+    _vigia()
     itens = sorted(_tarefas.values(), key=lambda t: t.get('id', ''), reverse=True)
     return {'projetos': [{'id': t['id'], 'nome': t.get('nome'), 'status': t.get('status'),
                           'pasta': t.get('pasta'), 'resumo': t.get('resumo'),
@@ -81,6 +101,7 @@ def status():
 
 def resumo(lang='pt'):
     """Resumo CURTO e fácil do que o Jarvis fez (só quando perguntam o que ele fez)."""
+    _vigia()
     itens = sorted(_tarefas.values(), key=lambda t: t.get('id', ''), reverse=True)
     prontos = [t for t in itens if t.get('status') == 'pronto']
     fazendo = [t for t in itens if t.get('status') == 'fazendo']
@@ -167,9 +188,22 @@ def _gerar_projeto_bem(prompt, lang):
         "grande e chamada, seções em cards com espaço em branco bom, rodapé completo; "
         "4) Use ids/classes SEMÂNTICAS que o CSS e o JS vão consumir; "
         "5) Textos REAIS do tema (nada de Lorem ipsum) no idioma do usuário. "
-        f"Devolva APENAS o código HTML completo. Idioma: {idioma}.")
-    html = brain.gerar_parte(sys_html, f"PLANO APROVADO:\n{json.dumps(meta, ensure_ascii=False)}\n"
-                                        f"PEDIDO ORIGINAL: {prompt}", 180, 8000)
+        f"Devolva APENAS o código HTML completo. Idioma: {idioma}. "
+        "6) MÍNIMO 200 linhas: TODAS as seções do plano com conteúdo REAL e DENSOS, "
+        "com no mínimo 8 <img> em URLs no formato do item 2. "
+        "7) NUNCA escreva frases de explicação: só código do <DOCTYPE> até </html>.")
+    pedido_html = (f"PLANO APROVADO:\n{json.dumps(meta, ensure_ascii=False)}\n"
+                   f"PEDIDO ORIGINAL: {prompt}")
+    html = brain.gerar_parte(sys_html, pedido_html, 170, 8000) or ''
+    if len(html) < 2500 or 'pollinations' not in html or html.lower().count('<img') < 6:
+        urls = '\n'.join(f'<img src="{f["url"]}" alt="{d[:80]}">'
+                         for d, f in zip(imagens, fundos) if isinstance(f, dict))
+        html2 = brain.gerar_parte(
+            sys_html + " SUA ANTERIOR RESPOSTA FOI CURTA E SEM IMAGENS. Refaça COMPLETO: no mínimo "
+            "200 linhas, todas as seções DENSAS e estas URLs de imagem obrigatórias (copie-as nas <img>):\n"
+            + urls + "\n" + pedido_html, 170, 8000) or ''
+        if len(html2) > len(html):
+            html = html2
     if not html or 'html' not in html.lower()[:400]:
         return None
 
@@ -184,11 +218,18 @@ def _gerar_projeto_bem(prompt, lang):
         "scrollbar estilizada, dark elegante quando a paleta pedir, TOTALMENTE responsivo "
         "(breakpoints 1024/768/480), e detalhes: botões com brilho, badges, gradientes de texto. "
         "ZERO conteúdo visual de 2010: nada de bordas cinzas sólidas, nada de tabelas. "
-        "Devolva APENAS o CSS. Classe-alvo: o HTML do projeto informado.")
+        "MÍNIMO 200 linhas reais de CSS. Devolva APENAS o CSS.")
     css_resumo = (json.dumps(paleta, ensure_ascii=False) if paleta else '') + ' | ' + vibe
-    css = brain.gerar_parte(sys_css, f"PALETA/VIBE: {css_resumo}\n"
-                                     f"PEDIDO: {prompt}", 180, 8000)
-    if not css or '{' not in css:
+    pedido_css = f"PALETA/VIBE: {css_resumo}\nPEDIDO: {prompt}"
+    css = brain.gerar_parte(sys_css, pedido_css, 170, 8000) or ''
+    if len(css) < 3000 or '--' not in css:
+        css2 = brain.gerar_parte(
+            sys_css + " SUA ANTERIOR RESPOSTA FOI CURTA/POBRE. Entrega técnica completa nível "
+            "Lovable, mínimo 220 linhas, todas as classes usadas pelo HTML do projeto.",
+            pedido_css, 170, 8000) or ''
+        if len(css2) > len(css):
+            css = css2
+    if '{' not in css:
         css = brain.gerar_parte(
             'Escreva CSS moderno e BONITO (variáveis, gradientes, glass, animações, responsivo) '
             'para o site descrito. Devolva APENAS o CSS.',
@@ -203,8 +244,16 @@ def _gerar_projeto_bem(prompt, lang):
         "arrays de dados dinâmicos, contadores, modal, toast). Inclua sempre: revela-on-scroll "
         "(IntersectionObserver), botão 'voltar ao topo' e estados decarregamento suaves. "
         "Devolva APENAS o JavaScript.")
-    js = brain.gerar_parte(sys_js, f"SECOES/FUNCIONALIDADES: {json.dumps(meta.get('secoes', []) + meta.get('funcional', []), ensure_ascii=False)}\n"
-                                   f"PEDIDO: {prompt}", 150, 6000) or ''
+    pedido_js = (f"SECOES/FUNCIONALIDADES: {json.dumps((meta.get('secoes') if isinstance(meta, dict) else []) + (meta.get('funcional') if isinstance(meta, dict) else []), ensure_ascii=False)}\n"
+                 f"PEDIDO: {prompt}")
+    js = brain.gerar_parte(sys_js + " No mínimo 150 linhas reais, com dados de exemplo coerentes.",
+                           pedido_js, 150, 6000) or ''
+    if len(js) < 1500:
+        js2 = brain.gerar_parte(sys_js + " SUA ANTERIOR FOI CURTA. Entrega completa: mínimo 180 "
+                                "linhas, todas as funções do pedido implementadas de verdade.",
+                                pedido_js, 150, 6000) or ''
+        if len(js2) > len(js):
+            js = js2
 
     return {'nome': nome, 'descricao': descricao, 'html': html, 'css': css, 'js': js,
             'offline': False, 'fundos': fundos}

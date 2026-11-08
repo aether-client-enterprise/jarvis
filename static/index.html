@@ -507,6 +507,8 @@ function updateIaLink() {
     ? '🔗 Pegue a chave aqui: <a href="' + url + '" target="_blank" style="color:var(--cy)">' + url.replace('https://', '') + '</a><br><span style="font-size:.58rem;color:#52748a">' + li[0] + '</span>'
     : li[0];
   $('btnOllama').style.display = $('iaProv').value === 'ollama' ? 'block' : 'none';
+  $('iaModel').value = '';           // o modelo velho de outro provedor não pode vazar
+  $('iaModel').placeholder = 'padrão do provedor';
 }
 $('iaProv').onchange = updateIaLink; updateIaLink();
 

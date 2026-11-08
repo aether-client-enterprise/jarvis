@@ -93,7 +93,12 @@ def _load_mem(max_lines=40, want_more=False):
 
 # ---------------- provedor de IA (chave do usuário) ----------------
 def set_provider(provider, key='', model=''):
-    """provider: openai | anthropic | gemini | groq | ollama | auto (grátis público)"""
+    """provider: openai | anthropic | gemini | groq | ollama | opencode | auto (grátis público)"""
+    # guard: o modelo de um provedor não pode colar em outro (ex.: 'llama-3.3-70b-versatile' no Ollama)
+    if provider == 'ollama' and re.search(r'70b-versatile|gpt-|claude|gemini|glm-', model or '', re.IGNORECASE):
+        model = ''
+    if provider != 'ollama' and re.match(r'^(llama\d|qwen|deepseek|phi|gemma)[.:]?[0-9.x]*$', (model or '').strip(), re.IGNORECASE):
+        model = ''  # nome de modelo LOCAL colado em provedor na nuvem
     cfg = {'provider': provider, 'key': key or '', 'model': model or _MODELO_PADRAO.get(provider, '')}
     try:
         with open(PROVIDER_FILE, 'w', encoding='utf-8') as f:
@@ -116,6 +121,27 @@ def get_provider():
 
 
 _MODEL_CACHE = {}
+
+
+def _ollama_pick_model(model):
+    """Ollama local: usa um modelo INSTALADO (lista /api/tags) e não um nome inválido."""
+    try:
+        if 'ollama' not in _MODEL_CACHE:
+            with urllib.request.urlopen('http://localhost:11434/api/tags', timeout=6) as r:
+                data = json.loads(r.read().decode('utf-8', errors='replace'))
+            nomes = [m.get('name', '') for m in data.get('models', []) if m.get('name')]
+            if nomes:
+                _MODEL_CACHE['ollama'] = nomes
+        nomes = _MODEL_CACHE.get('ollama') or []
+        if model in nomes:
+            return model
+        for pref in ('llama3.3', 'llama3.2', 'llama', 'qwen', 'deepseek', 'mistral', 'gemma', 'phi'):
+            for n in nomes:
+                if n.lower().startswith(pref):
+                    return n
+        return nomes[0] if nomes else model
+    except Exception:
+        return model
 
 
 def _groq_pick_model(model):
@@ -149,6 +175,9 @@ def _call_provider(cfg, sysmsg, mem, text, max_tokens=1500):
     model = cfg.get('model') or _MODELO_PADRAO.get(prov, '')
     if prov == 'groq':
         model = _groq_pick_model(model)
+    if prov == 'ollama':
+        model = _ollama_pick_model(model)
+        max_tokens = min(max_tokens, 3500)  # contexto do modelo local é pequeno
     key = cfg.get('key') or ''
     if prov in ('openai', 'groq', 'ollama', 'opencode'):
         url = {'openai': 'https://api.openai.com/v1/chat/completions',
