@@ -15,6 +15,7 @@ import uvicorn
 from jarvis.voice import Voice
 from jarvis.commands import Commands
 from jarvis.fs import FS
+from jarvis import brain
 
 HOST = "127.0.0.1"
 PORT = 8765
@@ -156,6 +157,23 @@ def api_weather(city: str = ""):
                 "desc": desc.get(cod, "clima"), "emoji": emoji.get(cod, "🌡️")}
     except Exception as e:
         return {"error": str(e)}
+
+
+# ---------- cérebro (provedor de IA) ----------
+@app.get("/brain/config")
+def brain_config():
+    return brain.get_provider()
+
+
+class BrainConfig(BaseModel):
+    provider: str
+    key: str = ""
+    model: str = ""
+
+
+@app.post("/brain/config")
+def brain_set(v: BrainConfig):
+    return brain.set_provider(v.provider, v.key, v.model)
 
 
 # ---------- sistema / arquivos ----------

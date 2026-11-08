@@ -20,9 +20,9 @@ class Voice:
     def __init__(self):
         self.recognizer = sr.Recognizer()
         self.recognizer.dynamic_energy_threshold = True
-        self.recognizer.pause_threshold = 0.6        # reage logo que você para de falar
+        self.recognizer.pause_threshold = 1.15       # só conclui a fala numa pausa real (respiração normal não corta)
         try:
-            self.recognizer.non_speaking_duration = 0.35
+            self.recognizer.non_speaking_duration = 0.5
         except Exception:
             pass
         self.microphone = sr.Microphone()
@@ -57,7 +57,7 @@ class Voice:
                 self.mic_ok = True
                 while True:
                     try:
-                        audio = self.recognizer.listen(source, timeout=None, phrase_time_limit=12)
+                        audio = self.recognizer.listen(source, timeout=None, phrase_time_limit=18)
                     except Exception:
                         time.sleep(0.3)
                         continue

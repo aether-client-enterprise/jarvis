@@ -112,6 +112,16 @@
   #btnWake { border-color: var(--or); color: var(--or); background: transparent; }
   #btnWake.on { border-color: var(--ok); color: var(--ok); }
   .foot-hint { margin-top: 8px; font-size: .6rem; color: #52748a; letter-spacing: 2px; display: flex; justify-content: space-between; }
+  /* ---------- modal IA ---------- */
+  #iaModal { position: fixed; inset: 0; background: rgba(2,6,12,.85); display: none; align-items: center; justify-content: center; z-index: 50; }
+  #iaModal.on { display: flex; }
+  .ia-card { width: 500px; max-width: 92vw; background: #071524; border: 1px solid var(--cy); border-radius: 8px; padding: 18px; display: flex; flex-direction: column; gap: 10px; box-shadow: 0 0 70px rgba(0,217,255,.28); }
+  .ia-card h3 { color: var(--cy); letter-spacing: 3px; font-size: .9rem; }
+  .ia-card label { font-size: .62rem; letter-spacing: 2px; color: var(--mut); }
+  .ia-card input, .ia-card select { background: #06101d; border: 1px solid var(--line); color: #eaffff; padding: 9px 10px; font-family: inherit; border-radius: 3px; font-size: .75rem; width: 100%; }
+  .ia-card .row { display: flex; gap: 10px; } .ia-card .row > div { flex: 1; display: flex; flex-direction: column; gap: 6px; }
+  .ia-foot { display: flex; gap: 10px; justify-content: flex-end; margin-top: 4px; }
+  .ia-note { font-size: .6rem; color: #52748a; line-height: 1.5; }
 </style>
 </head>
 <body class="st-standby">
@@ -215,12 +225,37 @@
     <button class="btn" id="btnSend">▶</button>
     <button class="btn" id="btnSpeak">◉ CLICK TO SPEAK</button>
     <button class="btn" id="btnWake">♦ WAKE OFF</button>
+    <button class="btn" id="btnCfg">⚙️ IA</button>
   </div>
   <div class="foot-hint">
     <span>[F11] FULLSCREEN &nbsp;&nbsp; [F4] PUSH TO TALK</span>
     <span>LOCAL-FIRST COMMAND SYSTEM // JARVIS v2</span>
   </div>
 </footer>
+
+<div id="iaModal"><div class="ia-card">
+  <h3>⚙️ CÉREBRO — PROVEDOR DE IA</h3>
+  <div class="row">
+    <div><label>PROVEDOR</label>
+      <select id="iaProv">
+        <option value="auto">AUTO — GRÁTIS (público + wikipédia)</option>
+        <option value="openai">OpenAI (ChatGPT)</option>
+        <option value="anthropic">Anthropic (Claude)</option>
+        <option value="gemini">Google Gemini</option>
+        <option value="groq">Groq (Llama ultra-rápido)</option>
+        <option value="ollama">Ollama LOCAL (no PC, sem chave)</option>
+      </select>
+    </div>
+    <div><label>MODELO (opcional)</label><input id="iaModel" placeholder="padrão do provedor"></div>
+  </div>
+  <label>API KEY</label>
+  <input id="iaKey" type="password" placeholder="cole sua chave: sk-… / sk-ant-… / AIza…">
+  <div class="ia-note">Sem chave = modo público gratuito. Com chave do OpenAI/Anthropic/Gemini/Groq, o Jarvis pensa com a MESMA inteligência dessas marcas. Ollama local não precisa de chave (requer Ollama instalado e rodando).</div>
+  <div class="ia-foot">
+    <button class="btn" id="iaSave">💾 SALVAR</button>
+    <button class="btn" id="iaClose">FECHAR</button>
+  </div>
+</div></div>
 
 <script>
 const $ = id => document.getElementById(id);
@@ -416,6 +451,29 @@ $('btnStopVoice').onclick = () => { fetch('/voice/stop', { method: 'POST' }); sy
 document.addEventListener('keydown', e => {
   if (e.key === 'F4') { e.preventDefault(); $('btnSpeak').click(); }
 });
+
+/* ---------- CÉREBRO / IA (chave própria das grandes) ---------- */
+async function loadIaCfg() {
+  try {
+    const d = await (await fetch('/brain/config')).json();
+    if (d.provider && d.provider !== 'auto') { $('iaProv').value = d.provider; }
+    if (d.model) { $('iaModel').value = d.model; }
+    if (d.key_hint) { $('iaKey').placeholder = 'salvo (' + d.key_hint + ') — deixe vazio para manter'; }
+  } catch (e) {}
+}
+$('btnCfg').onclick = () => { loadIaCfg(); $('iaModal').classList.add('on'); };
+$('iaClose').onclick = () => $('iaModal').classList.remove('on');
+$('iaSave').onclick = async () => {
+  const body = { provider: $('iaProv').value, key: $('iaKey').value.trim(), model: $('iaModel').value.trim() };
+  try {
+    await fetch('/brain/config', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify(body) });
+    addLog('SYS', 'Cérebro configurado: ' + body.provider.toUpperCase() + (body.model ? ' / ' + body.model : ''));
+  } catch (e) { addLog('SYS', 'Falha ao salvar cerebro'); }
+  $('iaKey').value = '';
+  loadIaCfg();
+  $('iaModal').classList.remove('on');
+};
+loadIaCfg();
 
 /* boot */
 sys('HUD inicializado.');
