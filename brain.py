@@ -17,6 +17,7 @@ _MODELO_PADRAO = {
     'gemini': 'gemini-2.0-flash',
     'groq': 'llama-3.3-70b-versatile',
     'ollama': 'llama3.2',
+    'opencode': 'glm-5.3',
 }
 
 SYSTEM = """Você é o JARVIS, assistente pessoal com acesso TOTAL ao computador do usuário (Windows, Administrador, pasta pessoal C:\\Users\\joilton).
@@ -149,10 +150,11 @@ def _call_provider(cfg, sysmsg, mem, text, max_tokens=1500):
     if prov == 'groq':
         model = _groq_pick_model(model)
     key = cfg.get('key') or ''
-    if prov in ('openai', 'groq', 'ollama'):
+    if prov in ('openai', 'groq', 'ollama', 'opencode'):
         url = {'openai': 'https://api.openai.com/v1/chat/completions',
                'groq': 'https://api.groq.com/openai/v1/chat/completions',
-               'ollama': 'http://localhost:11434/v1/chat/completions'}[prov]
+               'ollama': 'http://localhost:11434/v1/chat/completions',
+               'opencode': 'https://opencode.ai/inference/openai/v1/chat/completions'}[prov]
         headers = {'Authorization': 'Bearer ' + key} if prov != 'ollama' else {}
         d = _post_json(url, {'model': model,
                              'messages': [{'role': 'system', 'content': sysmsg + '\n\nMEMÓRIA RECENTE:\n' + mem},
@@ -216,26 +218,42 @@ def _eh_pergunta_de_fato(text):
 
 
 def _quick_chat(syscontent, usercontent, timeout, max_tokens=1500):
-    """Chat rápido: provedor do usuário (se configurado) senão público gratuito."""
+    """Chat rápido: provedor do usuário (se configurado) senão público gratuito.
+    Pedidos GRANDES (geração de código) com resposta fraca/caída caem para o público."""
     cfg = get_provider()
+    grande = max_tokens >= 4000
     if cfg.get('provider') not in (None, '', 'auto') and (cfg.get('key_hint') or cfg.get('provider') == 'ollama'):
         try:
             with open(PROVIDER_FILE, 'r', encoding='utf-8') as f:
                 cfg_real = json.load(f)
             r = _call_provider(cfg_real, syscontent, '', usercontent, max_tokens=max_tokens)
-            if r:
+            if r and (not grande or len(r) > 300):
                 return r
         except Exception:
             pass
     try:
         d = _post_json('https://text.pollinations.ai/openai', {
             'model': 'openai',
-            'max_tokens': max_tokens,
+            'max_tokens': min(max_tokens, 4000),
             'messages': [{'role': 'system', 'content': syscontent},
                          {'role': 'user', 'content': usercontent}]}, timeout)
-        return d.get('choices', [{}])[0].get('message', {}).get('content')
+        r = d.get('choices', [{}])[0].get('message', {}).get('content')
+        if r:
+            return r
     except Exception:
-        return None
+        pass
+    if grande:
+        try:
+            d = _post_json('https://text.pollinations.ai/openai', {
+                'model': 'mistral',
+                'messages': [{'role': 'system', 'content': syscontent},
+                             {'role': 'user', 'content': usercontent}]}, min(timeout, 110))
+            r = d.get('choices', [{}])[0].get('message', {}).get('content')
+            if r:
+                return r
+        except Exception:
+            pass
+    return None
 
 
 def correct_transcript(text):
@@ -254,6 +272,23 @@ def correct_transcript(text):
     except Exception:
         pass
     return text
+
+
+def gerar_parte(sysp, pedido, timeout=150, max_tokens=3000):
+    """Uma chamada cheia de texto puro (sem JSON): remove cercas ``` e devolve só o código/texto."""
+    try:
+        r = _quick_chat(sysp, pedido, timeout, max_tokens=max_tokens)
+        if not r:
+            return None
+        r = r.strip()
+        m = re.search(r'```(?:html|css|js|javascript|json)?\s*([\s\S]*?)```', r)
+        if m:
+            return m.group(1).strip()
+        # se veio com uma cerca só de abertura, corta o rótulo
+        r = re.sub(r'^```[a-zA-Z]*\s*', '', r) if r.startswith('```') else r
+        return r.strip()
+    except Exception:
+        return None
 
 
 def generate_site(cmd, lang='pt'):

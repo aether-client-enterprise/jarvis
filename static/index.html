@@ -253,6 +253,7 @@
         <option value="anthropic">Anthropic (Claude)</option>
         <option value="gemini">Google Gemini</option>
         <option value="groq">Groq (Llama ultra-rápido)</option>
+        <option value="opencode">OpenCode (GLM/Kimi/MiniMax)</option>
         <option value="ollama">Ollama LOCAL (no PC, sem chave)</option>
       </select>
     </div>
@@ -261,7 +262,7 @@
   <label>API KEY</label>
   <input id="iaKey" type="password" placeholder="cole sua chave: sk-… / sk-ant-… / AIza…">
   <div class="ia-note" id="iaLink">—</div>
-  <div class="ia-note">Groq e Gemini são GRÁTIS e sem cartão (gere a chave no link acima, cole e salve). Ollama local: o próprio Jarvis baixa, instala e configurado tudo sozinho, sem chave.</div>
+  <div class="ia-note">Groq e Gemini: GRÁTIS sem cartão — gere a chave no link e salve. OpenCode: chave feita no Console (o GRATUITO do Zen só roda dentro do OpenCode; pelo Jarvis use Go/saldo — GLM é o melhor p/ sites nível Lovable). Ollama: o Jarvis instala tudo sozinho, sem chave.</div>
   <button class="mini" id="btnOllama" style="display:none">⬇️ INSTALAR OLLAMA GRÁTIS NO PC (AUTOMÁTICO)</button>
   <div class="ia-foot">
     <button class="btn" id="iaSave">💾 SALVAR</button>
@@ -496,6 +497,7 @@ const IA_LINKS = {
   anthropic: ['https://console.anthropic.com/settings/keys', 'https://console.anthropic.com/settings/keys'],
   gemini: ['https://aistudio.google.com/app/apikey — GRÁTIS, sem cartão', 'https://aistudio.google.com/app/apikey'],
   groq: ['https://console.groq.com/keys — GRÁTIS, sem cartão, ultra-rápido', 'https://console.groq.com/keys'],
+  opencode: ['https://opencode.ai/console — GLM/Kimi/MiniMax de alta potência (melhor p/ gerar sites nível Lovable)', 'https://opencode.ai/console'],
   ollama: ['grátis e 100% LOCAL no seu PC — sem chave e sem internet', 'https://ollama.com'],
 };
 function updateIaLink() {

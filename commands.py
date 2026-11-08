@@ -64,9 +64,12 @@ class Commands:
         # também aceita "criar algo / qualquer coisa" genérico
         generico = r'\b(algo|qualquer coisa)\b'
         if re.search(verbo, lcmd) and (re.search(objetos, lcmd) or re.search(generico, lcmd)):
-            # proteção: perguntas ("o que você faz") não são criação
-            if re.search(r'\b(o que|quem|como|quando|por que|qual|funcion|você sabe|'
-                         r'what do you do|how does)\b', lcmd):
+            # proteção: SÓ engata se a frase É uma pergunta ("o que você faz?" /
+            # "como funciona?"). Palavra 'como' no meio do pedido (pr "como fosse uma
+            # loja real") NÃO bloqueia a criação.
+            if lcmd.rstrip().endswith('?') or re.match(
+                    r'\s*(o que|quem|qual|quais|quando|onde|por que|porque|tem|existe|'
+                    r'você (sabe|pode me)|pode me dize[r]|what |why |how )', lcmd):
                 return False
             return True
         return False
