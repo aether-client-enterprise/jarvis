@@ -22,6 +22,7 @@ REGRAS:
 [SITE: descrição curta do site/jogo a criar]
 Essas diretivas são EXECUTADAS de verdade pelo sistema. Nunca invente a saída de comandos.
 5) Hora atual: {now}. Idioma detectado: {ldetect}.
+6) Se o texto do usuário for fragmento solto, ruído do microfone ou não fizer sentido, NÃO invente nada e NÃO troque de assunto: responda apenas "Não entendi bem, pode repetir?" (no idioma do usuário).
 Você recebe abaixo memória das conversas anteriores; use-a para lembrar preferências e nomes."""
 
 
@@ -87,6 +88,10 @@ def _wiki_answer(text, lang='pt'):
         dom = 'pt' if lang != 'en' else 'en'
         q = re.sub(r'[?!.]+$', '', text.strip())
         q = re.sub(r'^(quem|o que|qual|when|what|who|where)\s+(?:e|é|foi|são|sao|was|is|are|does|did)?\s*', '', q, flags=re.IGNORECASE).strip()
+        if len(q) < 6:
+            return None  # lixo/fragmento não vai para a Wikipédia
+        if re.search(r'\b(abri[rz]?|abra|abre|criar|crie|cria|executar|rodar|tocar|gerar|gere|gera|montar|monte|monta|open|create|run|play)\b', q, re.IGNORECASE):
+            return None  # pedidos de AÇÃO não são perguntas de conhecimento
         u = f'https://{dom}.wikipedia.org/w/rest.php/v1/search/page?q={urllib.parse.quote(q)}&limit=1'
         req = urllib.request.Request(u, headers={'User-Agent': 'JarvisLocal/2'})
         with urllib.request.urlopen(req, timeout=12) as r:

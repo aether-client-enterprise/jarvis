@@ -163,6 +163,17 @@ class Commands:
             webbrowser.open(mapa[chave])
             return self._t(f"Abrindo {alvo} no navegador.", f"Opening {alvo} in browser.", lang)
 
+        if 'youtube' in chave:
+            resto = re.sub(r'\b(?:youtube|canais?|v[íi]deos?|perfil|p[áa]gina)\b', ' ', alvo, flags=re.IGNORECASE)
+            resto = re.sub(r'\b(?:o|a|os|as|um|uma|no|na|do|da|dos|das|de|para|pra|por|com|sobre|meu|minha|tal)\b', ' ',
+                           resto, flags=re.IGNORECASE).strip()
+            resto = re.sub(r'\s+', ' ', resto)
+            if resto:
+                webbrowser.open('https://www.youtube.com/results?search_query=' + urllib.parse.quote(resto))
+                return self._t(f"Abrindo YouTube: busca por {resto}.", f"Opening YouTube: search for {resto}.", lang)
+            webbrowser.open('https://www.youtube.com')
+            return self._t("Abrindo YouTube no navegador.", "Opening YouTube in browser.", lang)
+
         if 'instagram' in chave or 'whatsapp' in chave:
             m = re.search(r'(?:do|da|de|com|with|to)\s+(.+)', alvo, re.IGNORECASE)
             nome = m.group(1).strip() if m else ''

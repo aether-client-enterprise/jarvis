@@ -367,7 +367,11 @@ async function micLoop() {
       if (micOn && d.text && d.text.trim()) {
         let t = d.text.trim();
         if (!wakeOn) {
-          send(t, true);
+          if (t.split(/\s+/).filter(Boolean).length < 2) {
+            sys('Fala muito curta — ignorada: "' + t + '"');
+          } else {
+            send(t, true);
+          }
         } else if (isWakePhrase(t.toLowerCase())) {
           send(stripWake(t) || t, true);
           micOn = false; syncMicBtn(); break;   // depois do wake, exige nova ativação
