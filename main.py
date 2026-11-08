@@ -300,4 +300,16 @@ if __name__ == "__main__":
     print(f"[*] Jarvis rodando em http://{HOST}:{PORT}")
     print("[*] Wake word: 'ok jarvis' ou 'hey jarvis'")
     print("[*] Idiomas: português, inglês e detecção automática")
-    uvicorn.run(app, host=HOST, port=PORT)
+    try:
+        uvicorn.run(app, host=HOST, port=PORT)
+    except Exception:
+        import traceback
+        try:
+            log = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'erro_servidor.log')
+            with open(log, 'w', encoding='utf-8') as f:
+                f.write(time.strftime('%Y-%m-%d %H:%M:%S') + '\n' + traceback.format_exc())
+            print("ERRO persistido em:", log)
+            input("Pressione ENTER para fechar ")
+        except Exception:
+            import traceback as _t
+            _t.print_exc()
