@@ -84,6 +84,74 @@ def voice_listen():
         return {"text": "", "error": str(e)}
 
 
+@app.get("/voice/state")
+def voice_state():
+    return {"speaking": voice.is_speaking()}
+
+
+@app.get("/system/metrics")
+def system_metrics():
+    cpu = mem = None
+    try:
+        import psutil
+        cpu = psutil.cpu_percent(interval=None)
+        mem = psutil.virtual_memory().percent
+    except Exception:
+        pass
+    import shutil
+    try:
+        du = shutil.disk_usage(os.path.expanduser("~"))
+        disk = round(100 * du.used / du.total) if du.total else None
+    except Exception:
+        disk = None
+    return {"cpu": cpu, "mem": mem, "disk": disk}
+
+
+@app.get("/api/weather")
+def api_weather(city: str = ""):
+    import json as _json
+    try:
+        import urllib.request
+        from urllib.parse import quote as _q
+        lat = lon = None
+        local = (city or "").strip()
+        if not local:
+            try:
+                with urllib.request.urlopen("https://ipapi.co/json/", timeout=6) as r:
+                    ip = _json.loads(r.read().decode())
+                local = ip.get("city") or ""
+                lat = ip.get("latitude")
+                lon = ip.get("longitude")
+            except Exception:
+                local = "São Paulo"  # fallback: geolocalização por IP falhou
+        if lat is None or lon is None:
+            u = f"https://geocoding-api.open-meteo.com/v1/search?name={_q(local)}&count=1&language=pt&format=json"
+            with urllib.request.urlopen(u, timeout=6) as r:
+                g = _json.loads(r.read().decode())
+            if g.get("results"):
+                lat = g["results"][0]["latitude"]
+                lon = g["results"][0]["longitude"]
+                local = g["results"][0].get("name") or local
+        if lat is None or lon is None:
+            return {"error": "local nao encontrado"}
+        u2 = f"https://api.open-meteo.com/v1/forecast?latitude={lat}&longitude={lon}&current_weather=true"
+        with urllib.request.urlopen(u2, timeout=6) as r:
+            w = _json.loads(r.read().decode())["current_weather"]
+        cod = w.get("weathercode", 0)
+        desc = {0: "céu limpo", 1: "quase limpo", 2: "parcial", 3: "nublado", 45: "névoa", 48: "névoa",
+                51: "chuvisco", 53: "chuvisco", 55: "chuvisco", 61: "chuva", 63: "chuva", 65: "chuva forte",
+                71: "neve", 73: "neve", 75: "neve", 80: "pancadas", 81: "pancadas", 82: "pancadas",
+                95: "tempestade", 96: "tempestade", 99: "tempestade"}
+        emoji = {0: "☀️", 1: "🌤️", 2: "⛅", 3: "☁️", 45: "🌫️", 48: "🌫️", 51: "🌦️", 53: "🌦️", 55: "🌦️",
+                 61: "🌧️", 63: "🌧️", 65: "🌧️", 71: "❄️", 73: "❄️", 75: "❄️", 80: "🌧️", 81: "🌧️",
+                 82: "🌧️", 95: "⛈️", 96: "⛈️", 99: "⛈️"}
+        return {"cidade": local, "temp": round(w.get("temperature", 0)),
+                "vento": round(w.get("windspeed", 0)),
+                "desc": desc.get(cod, "clima"), "emoji": emoji.get(cod, "🌡️")}
+    except Exception as e:
+        return {"error": str(e)}
+
+
 # ---------- sistema / arquivos ----------
 @app.get("/system/info")
 def sys_info():

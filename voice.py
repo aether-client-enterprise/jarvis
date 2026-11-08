@@ -17,6 +17,8 @@ class Voice:
         self.microphone = sr.Microphone()
         self._mic_busy = threading.Event()
         self._ambient_done = False
+        self._speak_thread = None
+        self._speaking_flag = False
 
         engine = pyttsx3.init()
         self._voices = engine.getProperty('voices')
@@ -106,6 +108,7 @@ class Voice:
         t.start()
 
     def _speak_job(self, text, lang):
+        self._speaking_flag = True
         self._last_engine = None
         try:
             engine = pyttsx3.init()
@@ -123,6 +126,10 @@ class Voice:
             pass
         finally:
             self._last_engine = None
+            self._speaking_flag = False
+
+    def is_speaking(self):
+        return bool(getattr(self, '_speaking_flag', False))
 
     def stop_speaking(self):
         """Interrompe a fala atual imediatamente."""
