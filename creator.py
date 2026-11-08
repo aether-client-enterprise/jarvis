@@ -351,6 +351,21 @@ body{font-family:'Outfit',system-ui,sans-serif;background:var(--bg);color:var(--
 @media(max-width:900px){.hero,.sobre,.cta-card{grid-template-columns:1fr}.topo nav{display:none}}
 """
 
+_CSS_REFORCO = """/* Reforço Jarvis: grade, responsividade, revelação */
+.grade,.depoimentos{display:grid;gap:24px}
+.grade{grid-template-columns:repeat(auto-fill,minmax(250px,1fr))}
+.depoimentos{grid-template-columns:repeat(auto-fit,minmax(280px,1fr))}
+.hero,.sobre{display:grid;align-items:center;gap:40px}
+.hero{grid-template-columns:1.05fr .95fr}
+.sobre{grid-template-columns:.9fr 1.1fr}
+.revela{opacity:0;transform:translateY(26px);transition:all .7s cubic-bezier(.2,.7,.2,1)}
+.revela.on{opacity:1;transform:none}
+button,.btn,.btn-comprar{cursor:pointer;font-weight:700}
+:root{--su:#6c5cff;--su2:#a15cff}
+@media(max-width:900px){.hero,.sobre{grid-template-columns:1fr}.topo div,nav{display:none}}
+@media(max-width:480px){.grade{grid-template-columns:1fr;padding:0 12px}}
+"""
+
 _JS_PADRAO = """/* Lógica padrão Jarvis — carrinho, busca, revelação e topo */
 (function () {
   'use strict';
@@ -517,6 +532,8 @@ def _gerar_projeto_bem(prompt, lang):
             f"Site: {(meta.get('vibe') if isinstance(meta, dict) else '') or prompt}", 120, 6000) or ''
     if len(css) < 900 or '{' not in css:
         css = _CSS_PADRAO
+    elif 'data-padrao="1"' in html and not all(s in css for s in ('@media', 'grid', 'revela')):
+        css += '\n' + _CSS_REFORCO
 
     # ---------- JS ----------
     sys_js = (
