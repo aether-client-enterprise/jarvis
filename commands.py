@@ -10,6 +10,9 @@ import sys
 import time
 from pathlib import Path
 
+from jarvis.templates_site import site_html
+from jarvis.templates_rpg import jogo_rpg_html
+
 
 class Commands:
     def __init__(self, fs, voice=None):
@@ -70,8 +73,7 @@ class Commands:
             alvo = re.sub(r'^(abrir|acessar|open|access)\s+', '', cmd, flags=re.IGNORECASE).strip()
             return self._abrir(alvo, lang), lang
 
-        if any(w in lcmd for w in ['criar site', 'criar aplicativo', 'criar jogo', 'gerar site', 'fazer site',
-                                   'create site', 'create app', 'create game', 'make site', 'build site']):
+        if re.search(r'\b(cria(?:r)?|crie|cr[íi][ée]|faz(?:er)?|fa[çc]a|gera(?:r)?|gere|monta(?:r)?|monte|desenvolv[ea]|make|create|build)\b.{0,60}\b(site|jogo|game|app|aplicativo|aplica[çc][ãa]o|p[áa]gina|web)\b', lcmd):
             return self._criar_html(cmd, lang), lang
 
         if re.match(r'^(ler|ler arquivo|read|read file)\s+', lcmd):
@@ -156,16 +158,47 @@ class Commands:
         return self._t(f"Buscando {alvo} no Google.", f"Searching {alvo} on Google.", lang)
 
     def _criar_html(self, cmd, lang):
-        nome_arquivo = 'projeto_jarvis.html'
-        conteudo = self._gerar_conteudo_html(cmd)
-        caminho = str(Path.home() / nome_arquivo)
+        baixo = cmd.lower()
+        eh_jogo = re.search(r'\b(jogo|game|plataforma|aventura)\b', baixo) and not re.search(r'\bsite\b', baixo)
+        pasta = Path.home() / 'Downloads' / 'Jarvis' / 'criacoes'
+        base = 'jogo_rpg_2d' if eh_jogo else 'site_jarvis'
+        caminho = pasta / f"{base}_{int(time.time())}.html"
         try:
-            with open(caminho, 'w', encoding='utf-8') as f:
-                f.write(conteudo)
-            webbrowser.open('file:///' + caminho.replace('\\', '/'))
+            if eh_jogo:
+                conteudo = jogo_rpg_html()
+                tipo = self._t('RPG 2D', 'RPG 2D', lang)
+            else:
+                tema = 'cyberpunk'
+                if re.search(r'romantic|amor|namora|cora[çc][ãa]o|beijo|sigilo', baixo):
+                    tema = 'romantico'
+                elif re.search(r'natureza|floresta|verde|jardim|planta', baixo):
+                    tema = 'natureza'
+                elif re.search(r'espac|galaxis?|galaxia|estrela|cosmos', baixo):
+                    tema = 'espaco'
+                titulo = None
+                m_t = re.search(r'(?:chamado|intitulado|titulo|t[íi]tulo)\s+["\']?([^"\'\.,;]+)', baixo)
+                if m_t:
+                    titulo = m_t.group(1).strip().title()
+                legenda = None
+                m_l = re.search(r'legenda\s+(?:[a-z]+\s+)?(?:[a-z]+\s+)?([a-z0-9â-ú\s]{1,80}?)(?=\s*[,;.]|$)', baixo)
+                if m_l:
+                    legenda = m_l.group(1).strip().capitalize()
+                conteudo = site_html(tema, titulo, legenda)
+                tipo = self._t(f"site (tema: {tema})", f"site (theme: {tema})", lang)
+            result = self.fs.write(str(caminho), conteudo)
+            if result.get('error'):
+                return self._t(f"Erro ao criar: {result['error']}", f"Error creating: {result['error']}", lang)
+            webbrowser.open('file:///' + str(caminho).replace('\\', '/'))
+            if eh_jogo:
+                extra = self._t(
+                    " O jogo tem botão 💾 Salvar (grava em Downloads\\Jarvis\\criacoes\\rpg_save.json) e 📂 Carregar.",
+                    " The game has 💾 Save (writes to Downloads\\Jarvis\\criacoes\\rpg_save.json) and 📂 Load."
+                , lang)
+            else:
+                extra = ''
             return self._t(
-                f"Criado {nome_arquivo} em {caminho} e aberto no navegador.",
-                f"Created {nome_arquivo} at {caminho} and opened in browser.",
+                f"✔ {tipo} criado em {caminho} e aberto no navegador.{extra}",
+                f"✔ {tipo} created at {caminho} and opened in browser.{extra}",
                 lang
             )
         except Exception as e:

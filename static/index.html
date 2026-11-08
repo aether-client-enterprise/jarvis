@@ -37,6 +37,12 @@
     .lang-pt { background: #00d9ff22; color: #00d9ff; border: 1px solid #00d9ff; }
     .lang-en { background: #ff9ff322; color: #ff9ff3; border: 1px solid #ff9ff3; }
     .lang-auto { background: #666; color: #aaa; border: 1px solid #666; }
+    #voiceBar { display: flex; align-items: center; gap: 8px; margin-top: 12px; font-size: 0.8rem; color: #9fb3c8; flex-wrap: wrap; }
+    #voiceSel { background: #0a0b0f; color: #e0e0e0; border: 1px solid #2a2f3a; border-radius: 8px; padding: 6px 8px; font-size: 0.8rem; max-width: 260px; }
+    #rateSel { accent-color: #00d9ff; width: 90px; }
+    #stopBtn { background: transparent; border: 1px solid #ff6b6b; color: #ff6b6b; border-radius: 8px; padding: 6px 12px; cursor: pointer; font-weight: bold; font-size: 0.78rem; }
+    #stopBtn:hover { background: #ff6b6b22; }
+    #voiceMsg { font-size: 0.72rem; color: #666; }
   </style>
 </head>
 <body>
@@ -53,6 +59,14 @@
         <button type="button" id="mic" title="Ativar microfone">🎙️</button>
         <button type="submit">Enviar</button>
       </form>
+      <div id="voiceBar">
+        <span>🔊 Voz:</span>
+        <select id="voiceSel"><option value="">carregando…</option></select>
+        <span title="Velocidade da fala">⚡</span>
+        <input type="range" id="rateSel" min="120" max="260" step="5" value="185">
+        <button type="button" id="stopBtn" title="Interromper a fala">⏹️ Parar fala</button>
+        <span id="voiceMsg"></span>
+      </div>
       <div class="hint">
         Diga ou escreva: <b>"ok jarvis"</b> seguido do comando.<br>
         Exemplos:<br>
@@ -77,6 +91,45 @@ const fileList = document.getElementById('fileList');
 const pathInput = document.getElementById('pathInput');
 const micBtn = document.getElementById('mic');
 const statusEl = document.getElementById('status');
+const voiceSel = document.getElementById('voiceSel');
+const rateSel = document.getElementById('rateSel');
+const stopBtn = document.getElementById('stopBtn');
+const voiceMsg = document.getElementById('voiceMsg');
+
+function vmsg(t) { voiceMsg.textContent = t; setTimeout(() => voiceMsg.textContent = '', 3000); }
+
+async function loadVoices() {
+  try {
+    const r = await fetch('/voice/voices');
+    const d = await r.json();
+    voiceSel.innerHTML = '';
+    (d.voices || []).forEach(v => {
+      const o = document.createElement('option');
+      o.value = v.id;
+      o.textContent = v.name.length > 42 ? v.name.slice(0, 42) + '…' : v.name;
+      voiceSel.appendChild(o);
+    });
+    if (d.voice_id) voiceSel.value = d.voice_id;
+    if (d.rate) rateSel.value = d.rate;
+  } catch (e) { vmsg('não pôde carregar vozes'); }
+}
+
+voiceSel.onchange = async () => {
+  const d = await (await fetch('/voice/select', { method: 'POST', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ voice_id: voiceSel.value, rate: parseInt(rateSel.value) }) })).json();
+  vmsg(d.error ? 'erro ao trocar voz' : 'voz trocada ✓');
+};
+
+rateSel.onchange = async () => {
+  await fetch('/voice/select', { method: 'POST', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ voice_id: '', rate: parseInt(rateSel.value) }) });
+  vmsg('velocidade: ' + rateSel.value);
+};
+
+function pararFala() { fetch('/voice/stop', { method: 'POST' }); }
+
+stopBtn.onclick = pararFala;
+loadVoices();
 
 let micActive = false;
 let detectedLang = 'auto';
@@ -130,6 +183,7 @@ form.onsubmit = async (e) => {
   if (!text) return;
   addMsg(text, 'user');
   msgInput.value = '';
+  pararFala();                       // interrompe a fala anterior na hora
   statusEl.textContent = 'Processando...';
   const r = await fetch('/chat', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({message: text, lang: detectedLang}) });
   const d = await r.json();
@@ -147,6 +201,7 @@ micBtn.onclick = async () => {
       const r = await fetch('/voice/listen', { method: 'POST' });
       const d = await r.json();
       if (d.text) {
+        pararFala();
         addMsg('(voz): ' + d.text, 'user');
         const rr = await fetch('/chat', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({message: d.text, lang: detectedLang}) });
         const dd = await rr.json();
