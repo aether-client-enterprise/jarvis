@@ -1,0 +1,19 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+env/
+.venv/
+.idea/
+.vscode/
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Jarvis local
+projeto_jarvis.html
