@@ -335,18 +335,42 @@ $('btnSend').onclick = () => { send(cmdInput.value); cmdInput.value = ''; };
 cmdInput.addEventListener('keydown', e => { if (e.key === 'Enter') { send(cmdInput.value); cmdInput.value = ''; } });
 document.querySelectorAll('.shortcut').forEach(el => el.onclick = () => send(el.dataset.cmd));
 
-/* ---------- MICROFONE ---------- */
+/* ---------- MICROFONE (wake word flexível: entende "Ok Jackson" etc. como "Ok Jarvis") ---------- */
+function lev(a, b) {
+  const m = [];
+  for (let i = 0; i <= a.length; i++) { m[i] = [i]; }
+  for (let j = 0; j <= b.length; j++) { m[0][j] = j; }
+  for (let i = 1; i <= a.length; i++) for (let j = 1; j <= b.length; j++)
+    m[i][j] = Math.min(m[i-1][j] + 1, m[i][j-1] + 1, m[i-1][j-1] + (a[i-1] !== b[j-1] ? 1 : 0));
+  return m[a.length][b.length];
+}
+const SAUDA = ['ok','hey','oi','ola','olá','e','ei','tá','ta','ha'];
+function isWakePhrase(low) {
+  if (low.includes('jarvis')) return true;
+  const tk = low.split(/\s+/).filter(Boolean);
+  if (tk.length < 2) return false;
+  return SAUDA.includes(tk[0]) && (tk[1].startsWith('jar') || lev(tk[1], 'jarvis') <= 2);
+}
+function stripWake(t) {
+  const tk = t.split(/\s+/);
+  const t1 = (tk[1] || '').toLowerCase();
+  if (tk.length >= 2 && SAUDA.includes((tk[0] || '').toLowerCase()) && (t1.startsWith('jar') || lev(t1, 'jarvis') <= 2)) {
+    return tk.slice(2).join(' ').trim();
+  }
+  return t.replace(/jarvis/i, '').trim();
+}
+
 async function micLoop() {
   while (micOn) {
     try {
       const d = await (await fetch('/voice/listen', { method: 'POST' })).json();
       if (micOn && d.text && d.text.trim()) {
-        let t = d.text.trim(); const low = t.toLowerCase();
-        const wakes = ['ok jarvis','hey jarvis','jarvis','oi jarvis','e ai jarvis'];
-        if (!wakeOn || wakes.some(w => low.startsWith(w))) {
-          let cmd = low.startsWith(wakes.find(w => low.startsWith(w)) || '') ? t.slice((wakes.find(w => low.startsWith(w)) || '').length).trim() : t;
-          send(cmd || t, true);
-          if (wakeOn) { micOn = false; syncMicBtn(); break; }  // wake exige nova ativação
+        let t = d.text.trim();
+        if (!wakeOn) {
+          send(t, true);
+        } else if (isWakePhrase(t.toLowerCase())) {
+          send(stripWake(t) || t, true);
+          micOn = false; syncMicBtn(); break;   // depois do wake, exige nova ativação
         } else {
           sys('Ignorado (sem wake word): "' + t + '"');
         }

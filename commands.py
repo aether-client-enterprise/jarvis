@@ -12,6 +12,7 @@ from pathlib import Path
 
 from jarvis.templates_site import site_html
 from jarvis.templates_rpg import jogo_rpg_html
+from jarvis import brain
 
 
 class Commands:
@@ -59,6 +60,12 @@ class Commands:
         lang = hint_lang or self._detect_lang(text)
         now = time.time()
 
+        # Registra TUDO que o usuário falar (memória persistente em disco)
+        try:
+            brain.log_user(text, lang)
+        except Exception:
+            pass
+
         # Modo contínuo: se já ativado recentemente, não exige wake word novamente
         if now < self.active_until:
             cmd = text.strip()
@@ -104,10 +111,35 @@ class Commands:
                 lines.append(f"{tag}{it['name']} — {it['path']}")
             return "\n".join(lines) if len(lines) > 1 else self._t("Nada encontrado.", "Nothing found.", lang), lang
 
-        # Conversa livre (tipo ChatGPT) — fallback para qualquer outra coisa
+        # Cérebro LLM: responde QUALQUER pergunta/tarefa (não depende de nada programado)
+        # e pode devolver diretivas reais: [RUN: ...] [OPEN: ...] [SITE: ...]
+        resposta, acoes = None, []
+        try:
+            resposta, acoes = brain.ask(text, lang)
+        except Exception:
+            resposta = None
         self.conversation_history.append({"user": text, "lang": lang})
         if len(self.conversation_history) > 10:
             self.conversation_history = self.conversation_history[-10:]
+        if resposta:
+            extras = []
+            for tipo, valor in (acoes or [])[:2]:
+                try:
+                    if tipo == 'OPEN':
+                        self._abrir(valor, lang)
+                        extras.append("→ executado: " + valor)
+                    elif tipo == 'RUN':
+                        saida = (self.system_run(valor) or '').strip()
+                        extras.append(f"→ comando `{valor}` executado:\n{saida[:700]}")
+                    elif tipo == 'SITE':
+                        extras.append(self._criar_html('criar site ' + valor, lang))
+                except Exception as e:
+                    extras.append('→ falha ao executar: ' + str(e))
+            if extras:
+                resposta = resposta + '\n\n' + '\n\n'.join(extras[:2])
+            return resposta, lang
+
+        # Fallback offline (sem internet): conversa local básica
         return self._chat_free(text, lang), lang
 
     def _abrir(self, alvo, lang):
