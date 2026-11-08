@@ -2,6 +2,10 @@ import os
 import sys
 import ctypes
 import time
+import json
+import threading
+import subprocess
+import urllib.request
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -174,6 +178,63 @@ class BrainConfig(BaseModel):
 @app.post("/brain/config")
 def brain_set(v: BrainConfig):
     return brain.set_provider(v.provider, v.key, v.model)
+
+
+# ---------- instalação automática do OLLAMA (local, grátis, sem chave) ----------
+OLLAMA_STATE = {"step": "idle"}
+
+
+def _install_ollama():
+    try:
+        OLLAMA_STATE["step"] = "baixando instalador Ollama (~700MB)"
+        dest = os.path.join(os.environ.get("TEMP", "."), "OllamaSetup.exe")
+        urllib.request.urlretrieve("https://ollama.com/OllamaSetup.exe", dest)
+        OLLAMA_STATE["step"] = "instalando (silencioso)"
+        subprocess.run([dest, "/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART"], check=False)
+        exe = os.path.expandvars(r"%LOCALAPPDATA%\Programs\Ollama\ollama.exe")
+        if not os.path.exists(exe):
+            exe = os.path.expandvars(r"%LOCALAPPDATA%\Programs\Ollama\ollama app.exe")
+        if not os.path.exists(exe):
+            OLLAMA_STATE["step"] = "erro: instalador não terminou no caminho padrão"
+            return
+        OLLAMA_STATE["step"] = "iniciando serviço local do Ollama"
+        subprocess.Popen([exe, "serve"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                         creationflags=0x08000000)
+        for _ in range(10):
+            time.sleep(2)
+            try:
+                with urllib.request.urlopen("http://localhost:11434/api/tags", timeout=2) as r:
+                    if r.status == 200:
+                        break
+            except Exception:
+                continue
+        OLLAMA_STATE["step"] = "baixando modelo llama3.2 (~2GB, apenas na primeira vez)"
+        subprocess.run([exe, "pull", "llama3.2"], check=False)
+        brain.set_provider("ollama", "")
+        OLLAMA_STATE["step"] = "ok — cérebro LOCAL configurado (grátis, sem chave)"
+    except Exception as e:
+        OLLAMA_STATE["step"] = f"erro: {e}"
+
+
+@app.post("/brain/install_ollama")
+def install_ollama():
+    if OLLAMA_STATE["step"] in ("idle", "ok — cérebro LOCAL configurado (grátis, sem chave)") \
+            or OLLAMA_STATE["step"].startswith("erro"):
+        OLLAMA_STATE["step"] = "iniciando"
+        threading.Thread(target=_install_ollama, daemon=True).start()
+        return {"status": "iniciado"}
+    return {"status": OLLAMA_STATE["step"]}
+
+
+@app.get("/brain/ollama_status")
+def ollama_status():
+    rodando = False
+    try:
+        with urllib.request.urlopen("http://localhost:11434/api/tags", timeout=3) as r:
+            rodando = bool(json.loads(r.read().decode("utf-8", errors="replace")).get("models"))
+    except Exception:
+        pass
+    return {"step": OLLAMA_STATE["step"], "ollama_rodando": rodando}
 
 
 # ---------- sistema / arquivos ----------

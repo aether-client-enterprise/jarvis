@@ -250,7 +250,9 @@
   </div>
   <label>API KEY</label>
   <input id="iaKey" type="password" placeholder="cole sua chave: sk-… / sk-ant-… / AIza…">
-  <div class="ia-note">Sem chave = modo público gratuito. Com chave do OpenAI/Anthropic/Gemini/Groq, o Jarvis pensa com a MESMA inteligência dessas marcas. Ollama local não precisa de chave (requer Ollama instalado e rodando).</div>
+  <div class="ia-note" id="iaLink">—</div>
+  <div class="ia-note">Groq e Gemini são GRÁTIS e sem cartão (gere a chave no link acima, cole e salve). Ollama local: o próprio Jarvis baixa, instala e configurado tudo sozinho, sem chave.</div>
+  <button class="mini" id="btnOllama" style="display:none">⬇️ INSTALAR OLLAMA GRÁTIS NO PC (AUTOMÁTICO)</button>
   <div class="ia-foot">
     <button class="btn" id="iaSave">💾 SALVAR</button>
     <button class="btn" id="iaClose">FECHAR</button>
@@ -453,6 +455,24 @@ document.addEventListener('keydown', e => {
 });
 
 /* ---------- CÉREBRO / IA (chave própria das grandes) ---------- */
+const IA_LINKS = {
+  auto: ['modo público gratuito — sem chave e sem cadastro', ''],
+  openai: ['https://platform.openai.com/api-keys', 'https://platform.openai.com/api-keys'],
+  anthropic: ['https://console.anthropic.com/settings/keys', 'https://console.anthropic.com/settings/keys'],
+  gemini: ['https://aistudio.google.com/app/apikey — GRÁTIS, sem cartão', 'https://aistudio.google.com/app/apikey'],
+  groq: ['https://console.groq.com/keys — GRÁTIS, sem cartão, ultra-rápido', 'https://console.groq.com/keys'],
+  ollama: ['grátis e 100% LOCAL no seu PC — sem chave e sem internet', 'https://ollama.com'],
+};
+function updateIaLink() {
+  const li = IA_LINKS[$('iaProv').value] || IA_LINKS.auto;
+  const url = li[1];
+  $('iaLink').innerHTML = url
+    ? '🔗 Pegue a chave aqui: <a href="' + url + '" target="_blank" style="color:var(--cy)">' + url.replace('https://', '') + '</a><br><span style="font-size:.58rem;color:#52748a">' + li[0] + '</span>'
+    : li[0];
+  $('btnOllama').style.display = $('iaProv').value === 'ollama' ? 'block' : 'none';
+}
+$('iaProv').onchange = updateIaLink; updateIaLink();
+
 async function loadIaCfg() {
   try {
     const d = await (await fetch('/brain/config')).json();
@@ -474,6 +494,25 @@ $('iaSave').onclick = async () => {
   $('iaModal').classList.remove('on');
 };
 loadIaCfg();
+
+/* Instalação automática do Ollama local */
+let ollamaPoll = null;
+$('btnOllama').onclick = async () => {
+  try {
+    await fetch('/brain/install_ollama', { method: 'POST' });
+    addLog('SYS', '⬇️ Instalando Ollama local (baixa, instala, baixa o modelo). Veja o progresso aqui…');
+    if (ollamaPoll) clearInterval(ollamaPoll);
+    ollamaPoll = setInterval(async () => {
+      try {
+        const s = await (await fetch('/brain/ollama_status')).json();
+        if (s.step !== 'idle') { addLog('SYS', 'Ollama: ' + s.step); }
+        if (s.step === 'ok — cérebro LOCAL configurado (grátis, sem chave)' || s.step.startsWith('erro')) {
+          clearInterval(ollamaPoll); ollamaPoll = null;
+        }
+      } catch (e) {}
+    }, 8000);
+  } catch (e) { addLog('SYS', 'Falha ao iniciar instalação do Ollama'); }
+};
 
 /* boot */
 sys('HUD inicializado.');
