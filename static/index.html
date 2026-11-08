@@ -96,7 +96,15 @@
 
   /* ============ FOOTER ============ */
   footer { border-top: 1px solid var(--line); padding: 10px 14px 12px; }
-  #metrics { display: flex; gap: 14px; margin-bottom: 10px; }
+  #criBanner {
+  position: fixed; top: 64px; left: 50%; transform: translateX(-50%); z-index: 50;
+  background: linear-gradient(135deg, #0d3b2e, #10543f); color: #d7ffe9;
+  border: 1px solid #2ee6a8; border-radius: 12px; padding: 12px 18px; max-width: 92vw;
+  font-size: .85rem; box-shadow: 0 10px 40px rgba(46,230,168,.25);
+}
+#criBanner code { color: #9ff5cf; }
+
+#metrics { display: flex; gap: 14px; margin-bottom: 10px; }
   .met { flex: 1; border: 1px solid var(--line); padding: 8px 12px; border-radius: 4px; background: rgba(0,217,255,.03); }
   .met .lbl { display: flex; justify-content: space-between; font-size: .6rem; letter-spacing: 2px; color: var(--mut); margin-bottom: 6px; }
   .met .lbl b { color: #fff; }
@@ -125,6 +133,8 @@
 </style>
 </head>
 <body class="st-standby">
+
+<div id="criBanner" style="display:none"></div>
 
 <header>
   <div>
@@ -326,6 +336,26 @@ async function pollVoice() {
   try { const d = await (await fetch('/voice/state')).json(); serverSpeaking = !!d.speaking; } catch (e) {}
 }
 setInterval(pollVoice, 300); pollVoice();
+
+/* ---------- CRIAÇÕES (avisa quando um projeto em background ficar pronto) ---------- */
+const criVistos = new Set();
+async function pollCriacoes() {
+  try {
+    const d = await (await fetch('/criacoes')).json();
+    for (const p of (d.projetos || [])) {
+      if (p.status === 'pronto' && !criVistos.has(p.id)) {
+        criVistos.add(p.id);
+        const b = $('criBanner');
+        b.innerHTML = `✔ <b>${(p.nome || 'Projeto')}</b> pronto — criado em <code>${p.pasta || ''}</code>. Abra o index.html. Pergunte "o que você fez" quando quiser o resumo.`;
+        b.style.display = 'block';
+        clearTimeout(b._t); b._t = setTimeout(() => b.style.display = 'none', 30000);
+      } else if (p.status !== 'pronto') {
+        criVistos.delete(p.id);
+      }
+    }
+  } catch (e) {}
+}
+setInterval(pollCriacoes, 6000); pollCriacoes();
 
 /* ---------- CLIMA (Open-Meteo, sem chave) ---------- */
 async function loadWeather() {

@@ -8,11 +8,9 @@ import subprocess
 import platform
 import sys
 import time
-from pathlib import Path
 
-from jarvis.templates_site import site_html
-from jarvis.templates_rpg import jogo_rpg_html
 from jarvis import brain
+from jarvis import creator
 
 
 class Commands:
@@ -50,6 +48,38 @@ class Commands:
 
     def _t(self, pt, en, lang):
         return en if lang == 'en' else pt
+
+    @staticmethod
+    def _eh_criacao(lcmd):
+        """True se o usuário está PEDINDO PARA CRIAR algo (qualquer tipo, simples ou complexo)."""
+        if re.search(r'\b(abrir pasta|listar|executar)\b', lcmd):
+            return False
+        verbo = r'\b(cria(?:r|ç[ãa]o)?|crie|faz(?:er)?|fa[çc]a|gera(?:r)?|gere|monta(?:r)?|monte|' \
+                r'desenvolv(?:a|er)|construa|construir|programe|make|create|build|develop|generate)\b'
+        objetos = (r'\b(site|jogo|game|app|aplicativo|aplica[çc][ãa]o|p[áa]ginas?|web|sistema|bot|chatbot|'
+                   r'script|c[óo]digo|programa|fun[çc][ãa]o|plataforma|lista|tabela|formul[áa]rio|'
+                   r'calculadora|loja|portf[óo]lio|galeria|cron[ôo]metro|temporizador|timer|quiz|'
+                   r'dashboard|painel|relat[óo]rio|banco|agenda|plano|template|layout|menu|banner|'
+                   r'aventura|rpg|simulador|editor|conversor|ferramenta|projeto|portal)\b')
+        # também aceita "criar algo / qualquer coisa" genérico
+        generico = r'\b(algo|qualquer coisa)\b'
+        if re.search(verbo, lcmd) and (re.search(objetos, lcmd) or re.search(generico, lcmd)):
+            # proteção: perguntas ("o que você faz") não são criação
+            if re.search(r'\b(o que|quem|como|quando|por que|qual|funcion|você sabe|'
+                         r'what do you do|how does)\b', lcmd):
+                return False
+            return True
+        return False
+
+    @staticmethod
+    def _pergunta_criacao(lcmd):
+        """True se o usuário perguntou o que o Jarvis FEZ com criações passadas."""
+        return bool(re.search(
+            r'\b(o que voc[êe] (fez|criou|montou)|o que (fez|criou)|como (foi|ficou)|'
+            r'(est[áa]|ficou) pronto|'
+            r'onde (est[áa]|ficou|salvou|guardou) (o|a)? ?(projetos?|sites?|jogos?|apps?|cria[çc][õo]es?)|'
+            r'(mostre|mostra|abre) (as |as minhas |minhas )?(cria[çc][õo]es?|projetos?|resultados?)|'
+            r'(minhas|as) cria[çc][õo]es|meu[s]? projeto[s]?\b)', lcmd))
 
     def parse(self, text, hint_lang=None, via=None):
         raw = text
@@ -110,6 +140,20 @@ class Commands:
         if re.match(r'^(abrir|abra|abre|abri|abrir[a-z]*|acessar|acesse|acessar|open|access)\s+', lcmd := cmd.lower()):
             alvo = re.sub(r'^(abrir|acessar|open|access)\s+', '', cmd, flags=re.IGNORECASE).strip()
             return self._abrir(alvo, lang), lang
+
+        # CRIAÇÃO de qualquer coisa: agenda em segundo plano e responde CURTO (regra do dono:
+        # só "confirmado"/"estou gerando"; na sequência o painel mostra onde o projeto ficou).
+        if self._eh_criacao(lcmd):
+            try:
+                creator.fila_job(cmd, lang)
+            except Exception:
+                pass
+            return self._t('✅ Confirmado. Estou gerando...',
+                           '✅ Confirmed. Generating...', lang), lang
+
+        # Depois que ele pergunta o que foi feito: resumo CURTO e fácil (onde ficou, como abrir)
+        if self._pergunta_criacao(lcmd) and creator.tem_ultimo():
+            return creator.resumo(lang), lang
 
         if re.search(r'\b(cria(?:r)?|crie|cr[íi][ée]|faz(?:er)?|fa[çc]a|gera(?:r)?|gere|monta(?:r)?|monte|desenvolv[ea]|make|create|build)\b.{0,60}\b(site|jogo|game|app|aplicativo|aplica[çc][ãa]o|p[áa]gina|web)\b', lcmd):
             return self._criar_html(cmd, lang), lang
@@ -237,134 +281,13 @@ class Commands:
         return self._t(f"Buscando {alvo} no Google.", f"Searching {alvo} on Google.", lang)
 
     def _criar_html(self, cmd, lang):
-        baixo = cmd.lower()
-        eh_jogo = re.search(r'\b(jogo|game|plataforma|aventura)\b', baixo) and not re.search(r'\bsite\b', baixo)
-        pasta = Path.home() / 'Downloads' / 'Jarvis' / 'criacoes'
-        base = 'jogo_rpg_2d' if eh_jogo else 'site_jarvis'
-        caminho = pasta / f"{base}_{int(time.time())}.html"
+        """Diretiva [SITE: ...] do cérebro: agenda em segundo plano e usa a resposta curta."""
         try:
-            if eh_jogo:
-                conteudo = jogo_rpg_html()
-                tipo = self._t('RPG 2D', 'RPG 2D', lang)
-            else:
-                custom = None
-                try:
-                    custom = brain.generate_site(cmd, lang)
-                except Exception:
-                    custom = None
-                if custom:
-                    conteudo = custom
-                    tipo = self._t('site PERSONALIZADO pela IA', 'AI-CUSTOM site', lang)
-                else:
-                    tema = 'cyberpunk'
-                    if re.search(r'romantic|amor|namora|cora[çc][ãa]o|beijo|sigilo', baixo):
-                        tema = 'romantico'
-                    elif re.search(r'natureza|floresta|verde|jardim|planta', baixo):
-                        tema = 'natureza'
-                    elif re.search(r'espac|galaxis?|galaxia|estrela|cosmos', baixo):
-                        tema = 'espaco'
-                    titulo = None
-                    m_t = re.search(r'(?:chamado|intitulado|titulo|t[íi]tulo)\s+["\']?([^"\'\.,;]+)', baixo)
-                    if m_t:
-                        titulo = m_t.group(1).strip().title()
-                    legenda = None
-                    m_l = re.search(r'legenda\s+(?:[a-z]+\s+)?(?:[a-z]+\s+)?([a-z0-9â-ú\s]{1,80}?)(?=\s*[,;.]|$)', baixo)
-                    if m_l:
-                        legenda = m_l.group(1).strip().capitalize()
-                    conteudo = site_html(tema, titulo, legenda)
-                    tipo = self._t(f"site (tema: {tema}) [template básico]", f"site (theme: {tema}) [basic template]", lang)
-            result = self.fs.write(str(caminho), conteudo)
-            if result.get('error'):
-                return self._t(f"Erro ao criar: {result['error']}", f"Error creating: {result['error']}", lang)
-            webbrowser.open('file:///' + str(caminho).replace('\\', '/'))
-            if eh_jogo:
-                extra = self._t(
-                    " O jogo tem botão 💾 Salvar (grava em Downloads\\Jarvis\\criacoes\\rpg_save.json) e 📂 Carregar.",
-                    " The game has 💾 Save (writes to Downloads\\Jarvis\\criacoes\\rpg_save.json) and 📂 Load."
-                , lang)
-            else:
-                extra = ''
-            return self._t(
-                f"✔ {tipo} criado em {caminho} e aberto no navegador.{extra}",
-                f"✔ {tipo} created at {caminho} and opened in browser.{extra}",
-                lang
-            )
-        except Exception as e:
-            return self._t(f"Erro ao criar: {e}", f"Error creating: {e}", lang)
-
-    def _gerar_conteudo_html(self, cmd):
-        baixo = cmd.lower()
-        if 'jogo' in baixo or 'game' in baixo:
-            return """<!DOCTYPE html>
-<html lang="pt-BR">
-<head>
-  <meta charset="UTF-8">
-  <title>Jogo do Jarvis</title>
-  <style>
-    body { background: #111; color: #fff; font-family: sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; margin: 0; }
-    canvas { border: 2px solid #00d9ff; background: #000; cursor: crosshair; }
-    h1 { color: #00d9ff; margin-bottom: 10px; }
-    p { margin-bottom: 20px; }
-  </style>
-</head>
-<body>
-  <h1>Jogo do Jarvis</h1>
-  <p>Use as setas ou WASD para mover o quadrado azul.</p>
-  <canvas id="c" width="600" height="400"></canvas>
-  <script>
-    const cv = document.getElementById('c');
-    const x = cv.getContext('2d');
-    let p = { x: 300, y: 200 };
-    const keys = {};
-    window.onkeydown = e => keys[e.code] = true;
-    window.onkeyup = e => keys[e.code] = false;
-    function loop() {
-      if (keys['ArrowLeft'] || keys['KeyA']) p.x -= 5;
-      if (keys['ArrowRight'] || keys['KeyD']) p.x += 5;
-      if (keys['ArrowUp'] || keys['KeyW']) p.y -= 5;
-      if (keys['ArrowDown'] || keys['KeyS']) p.y += 5;
-      p.x = Math.max(0, Math.min(cv.width - 40, p.x));
-      p.y = Math.max(0, Math.min(cv.height - 40, p.y));
-      x.clearRect(0, 0, 600, 400);
-      x.fillStyle = '#00d9ff';
-      x.fillRect(p.x, p.y, 40, 40);
-      requestAnimationFrame(loop);
-    }
-    loop();
-  </script>
-</body>
-</html>"""
-        if 'site' in baixo or 'aplicativo' in baixo or 'app' in baixo:
-            return """<!DOCTYPE html>
-<html lang="pt-BR">
-<head>
-  <meta charset="UTF-8">
-  <title>Projeto Jarvis</title>
-  <style>
-    body { background: #0a0b0f; color: #e0e0e0; font-family: 'Segoe UI', sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; margin: 0; }
-    h1 { color: #00d9ff; margin-bottom: 20px; }
-    p { max-width: 500px; text-align: center; line-height: 1.6; margin-bottom: 30px; }
-    button { padding: 14px 28px; border: none; border-radius: 10px; background: #00d9ff; color: #051017; font-weight: bold; cursor: pointer; font-size: 1rem; }
-    button:hover { background: #33e3ff; }
-  </style>
-</head>
-<body>
-  <h1>Criado pelo Jarvis</h1>
-  <p>Este site/aplicativo foi gerado pelo seu assistente local com acesso total ao seu PC.</p>
-  <button onclick="alert('Jarvis funcionando perfeitamente!')">Testar Jarvis</button>
-</body>
-</html>"""
-        return """<!DOCTYPE html>
-<html lang="pt-BR">
-<head>
-  <meta charset="UTF-8">
-  <title>Jarvis Local</title>
-</head>
-<body>
-  <h1>Jarvis Local</h1>
-  <p>Projeto gerado com sucesso pelo seu assistente.</p>
-</body>
-</html>"""
+            creator.fila_job(cmd, lang)
+        except Exception:
+            pass
+        return self._t('✅ Confirmado. Estou gerando...',
+                       '✅ Confirmed. Generating...', lang)
 
     def _escrever_arquivo(self, cmd, lang):
         m = re.match(r'(?:escrever arquivo|write file)\s+(.+?)\s+(?:conteudo|content)\s+(.+)$', cmd,

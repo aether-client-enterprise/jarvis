@@ -238,6 +238,13 @@ def ollama_status():
     return {"step": OLLAMA_STATE["step"], "ollama_rodando": rodando}
 
 
+# ---------- criações em segundo plano (a HUD mostra quando o projeto ficar pronto) ----------
+@app.get("/criacoes")
+def criacoes():
+    from jarvis import creator
+    return creator.status()
+
+
 # ---------- sistema / arquivos ----------
 @app.get("/system/info")
 def sys_info():

@@ -114,9 +114,40 @@ def get_provider():
         return {'provider': 'auto', 'model': '', 'key_hint': ''}
 
 
-def _call_provider(cfg, sysmsg, mem, text):
+_MODEL_CACHE = {}
+
+
+def _groq_pick_model(model):
+    """Groq depreca modelos com frequência: consulta a lista real e escolhe o melhor disponível."""
+    try:
+        if 'groq' not in _MODEL_CACHE:
+            with open(PROVIDER_FILE, 'r', encoding='utf-8') as f:
+                key = json.load(f).get('key', '')
+            req = urllib.request.Request('https://api.groq.com/openai/v1/models',
+                                         headers={'Authorization': 'Bearer ' + key,
+                                                  'User-Agent': 'JarvisLocal/2'})
+            with urllib.request.urlopen(req, timeout=15) as r:
+                ids = [m.get('id', '') for m in json.loads(r.read().decode('utf-8', errors='replace')).get('data', [])]
+            ids = [i for i in ids if not re.search(r'whisper|tts|guard|embed|playai|distil', i, re.I)]
+            if ids:
+                _MODEL_CACHE['groq'] = ids
+        lista = _MODEL_CACHE.get('groq') or []
+        if model in lista:
+            return model
+        for pref in ('llama-3.3-70b', 'llama-3.3', '70b', 'llama-3.1-8b-instant', 'gpt-oss', 'llama'):
+            for i in lista:
+                if pref in i.lower():
+                    return i
+        return lista[0] if lista else model
+    except Exception:
+        return model
+
+
+def _call_provider(cfg, sysmsg, mem, text, max_tokens=1500):
     prov = cfg.get('provider')
     model = cfg.get('model') or _MODELO_PADRAO.get(prov, '')
+    if prov == 'groq':
+        model = _groq_pick_model(model)
     key = cfg.get('key') or ''
     if prov in ('openai', 'groq', 'ollama'):
         url = {'openai': 'https://api.openai.com/v1/chat/completions',
@@ -126,11 +157,11 @@ def _call_provider(cfg, sysmsg, mem, text):
         d = _post_json(url, {'model': model,
                              'messages': [{'role': 'system', 'content': sysmsg + '\n\nMEMÓRIA RECENTE:\n' + mem},
                                           {'role': 'user', 'content': text}],
-                             'max_tokens': 1500}, 90, headers)
+                             'max_tokens': max_tokens}, 90, headers)
         return (d.get('choices', [{}])[0].get('message', {}) or {}).get('content')
     if prov == 'anthropic':
         d = _post_json('https://api.anthropic.com/v1/messages',
-                       {'model': model, 'max_tokens': 1500,
+                       {'model': model, 'max_tokens': max_tokens,
                         'system': sysmsg + '\n\nMEMÓRIA RECENTE:\n' + mem,
                         'messages': [{'role': 'user', 'content': text}]}, 90,
                        {'x-api-key': key, 'anthropic-version': '2023-06-01'})
@@ -142,7 +173,7 @@ def _call_provider(cfg, sysmsg, mem, text):
         d = _post_json(url, {
             'systemInstruction': {'parts': [{'text': sysmsg + '\n\nMEMÓRIA RECENTE:\n' + mem}]},
             'contents': [{'role': 'user', 'parts': [{'text': text}]}],
-            'generationConfig': {'maxOutputTokens': 1500}}, 90)
+            'generationConfig': {'maxOutputTokens': max_tokens}}, 90)
         parts = d.get('candidates', [{}])[0].get('content', {}).get('parts', [])
         return parts[0].get('text') if parts else None
     return None
@@ -184,14 +215,14 @@ def _eh_pergunta_de_fato(text):
                          text.strip(), re.IGNORECASE))
 
 
-def _quick_chat(syscontent, usercontent, timeout):
+def _quick_chat(syscontent, usercontent, timeout, max_tokens=1500):
     """Chat rápido: provedor do usuário (se configurado) senão público gratuito."""
     cfg = get_provider()
     if cfg.get('provider') not in (None, '', 'auto') and (cfg.get('key_hint') or cfg.get('provider') == 'ollama'):
         try:
             with open(PROVIDER_FILE, 'r', encoding='utf-8') as f:
                 cfg_real = json.load(f)
-            r = _call_provider(cfg_real, syscontent, '', usercontent)
+            r = _call_provider(cfg_real, syscontent, '', usercontent, max_tokens=max_tokens)
             if r:
                 return r
         except Exception:
@@ -199,6 +230,7 @@ def _quick_chat(syscontent, usercontent, timeout):
     try:
         d = _post_json('https://text.pollinations.ai/openai', {
             'model': 'openai',
+            'max_tokens': max_tokens,
             'messages': [{'role': 'system', 'content': syscontent},
                          {'role': 'user', 'content': usercontent}]}, timeout)
         return d.get('choices', [{}])[0].get('message', {}).get('content')
@@ -241,6 +273,28 @@ def generate_site(cmd, lang='pt'):
         if '<!doctype' not in out.lower()[:300] and '<html' not in out.lower()[:300]:
             return None
         return out
+    except Exception:
+        return None
+
+
+def generate_project(cmd, lang='pt'):
+    """Gera um PROJETO COMPLETO organizado: devolve JSON {nome, descricao, html, css, js} ou None."""
+    sysp = ("Você é um ENGENHEIRO DE PRODUTO SÊNIOR. O usuário pede um projeto (site, jogo, app, ferramenta, "
+            "tabela etc.) para abrir no navegador. Construa o projeto COMPLETO, POLIDO e FUNCIONAL: "
+            "design bonito e moderno, código limpo, comentado em português simples, sem bugs, responsivo, "
+            "microinterações e textos no idioma do usuário. Cumpra EXATAMENTE cada detalhe do pedido. "
+            "Projete com carinho como quem entrega pronto pra produção.\n"
+            "Devolva APENAS um JSON VÁLIDO (sem markdown, sem comentários) neste formato:\n"
+            '{"nome": "nome curto do projeto", "descricao": "1-2 frases fáceis explicando o que faz", '
+            '"html": "<!DOCTYPE html> ... página que referencia css/style.css e js/script.js (caminhos relativos, <head> e <body> completos)", '
+            '"css": "TODO o CSS separado (nada inline)", "js": "TODO o JavaScript separado ou \'\'"}')
+    try:
+        out = _quick_chat(sysp, cmd, 180, max_tokens=8000)
+        if not out:
+            return None
+        if '{' not in out or '}' not in out:
+            return None
+        return out  # o parser fica no creator.py (split por CSV não; JSON cru)
     except Exception:
         return None
 
