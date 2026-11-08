@@ -13,6 +13,133 @@ from jarvis import brain
 from jarvis import creator
 
 
+# ------------- EXECUÇÃO REAL do PC: abrir PROGRAMAS INSTALADOS, não "pesquisar" -------------
+URI_APP = {
+    'spotify': 'spotify:', 'discord': 'discord://', 'telegram': 'tg://',
+    'whatsapp': 'whatsapp://', 'steam': 'steam://open/games', 'netflix': 'netflix://',
+    'roblox': 'roblox://', 'teams': 'msteams:', 'zoom': 'zoomus://',
+    'riot': 'riotclient://', 'valorant': 'riotclient://', 'league': 'riotclient://',
+    'telegramdesktop': 'tg://',
+}
+
+APELIDOS_APP = {
+    'vscode': 'visual studio code', 'vs code': 'visual studio code',
+    'code': 'visual studio code', 'loja': 'microsoft store',
+    'store': 'microsoft store', 'paint': 'paint', 'lunar': 'lunar client',
+    'owl': 'owl client', 'libs': '', 'valorant': 'riot client',
+    'league': 'league of legends', 'edge': 'microsoft edge',
+    'chrome': 'google chrome', 'planilhas': 'excel', 'documento': 'word',
+}
+
+
+def _termos_de(termo):
+    return [t for t in re.findall(r'[a-z0-9]{3,}', (termo or '').lower())]
+
+
+def _lnk_do_menu(termos):
+    """Procura o ATALHO do aplicativo no Menu Iniciar (Windows 10/11)."""
+    pastas = [os.path.join(os.getenv('APPDATA', ''), 'Microsoft', 'Windows', 'Start Menu', 'Programs'),
+              r'C:\ProgramData\Microsoft\Windows\Start Menu\Programs']
+    for base in pastas:
+        if not os.path.isdir(base):
+            continue
+        quase = None
+        for root, _dirs, files in os.walk(base):
+            for f in files:
+                fl = f.lower()
+                if not fl.endswith('.lnk') or 'uninstall' in fl:
+                    continue
+                if all(t in fl for t in termos):
+                    return os.path.join(root, f)
+                if quase is None and any(t in fl for t in termos):
+                    quase = os.path.join(root, f)
+        if quase:
+            return quase
+    return None
+
+
+def _appid_startapps(termos):
+    """Busca o AppID (UWP/Win32 moderno) e abre via shell:AppsFolder."""
+    q = ' -or '.join(("$_.Name -like '*%s*'" % t.replace("'", "''")) for t in termos)
+    if not q:
+        return False
+    try:
+        out = subprocess.run(['powershell', '-NoProfile', '-Command',
+                              '(Get-StartApps | Where-Object { ' + q + ' } | '
+                              'Select-Object -First 4 -ExpandProperty AppID)'],
+                             capture_output=True, text=True, timeout=20)
+    except Exception:
+        return False
+    for aid in (out.stdout or '').splitlines():
+        aid = aid.strip()
+        if aid and ' ' not in aid:
+            subprocess.Popen(['explorer', 'shell:AppsFolder\\' + aid], close_fds=True)
+            return True
+    return False
+
+
+def _executar_programa(chave, alvo_texto=''):
+    """Tenta ABRIR O PROGRAMA DE VERDADE. True/False."""
+    base = chave
+    for k, v in APELIDOS_APP.items():
+        if k in base and v:
+            base = base.replace(k, v)
+
+    # Spotify com pedido embutido (tocar/pesquisar X) usa o URI do app
+    m = re.search(r'(?:spotify|musicas?|m[úu]sic[ao]s?)\s+(?:toc[arz]?|toca|toque?|play|coloca|p[ôo]e?s?|pesquis[ae]+|d[ée]?)\s+(?:um|a|o)?\s*(.+)', base)
+    if not m:
+        m = re.search(r'(?:spotify)\s+(?:playlist|lista)\s+(?:de|do|da|com|with)?\s*(.+)', base)
+    if 'spotify' in base and m:
+        try:
+            os.startfile('spotify:search:' + urllib.parse.quote(m.group(1).strip()))
+            return True
+        except Exception:
+            pass
+
+    termos = _termos_de(base)
+    # 1) esquema de URI do app (mais rápido e oficial)
+    for k, uri in URI_APP.items():
+        if k in base:
+            try:
+                os.startfile(uri if 'spotify' not in base else 'spotify:')
+                return True
+            except Exception:
+                pass
+    # 2) atalho no Menu Iniciar
+    lnk = _lnk_do_menu(termos)
+    if lnk:
+        try:
+            os.startfile(lnk)
+            return True
+        except Exception:
+            pass
+    # 3) AppID moderno via shell:AppsFolder
+    if _appid_startapps(termos):
+        return True
+    return False
+
+
+def _url_instagram(texto):
+    """Instagram com intenção real: perfil, post, stories, mensagem."""
+    t = texto or ''
+    chave = t.lower()
+    mperf = re.search(r'perfil\s+(?:@\s*)?(?:d[aeo]s?|dos?|das?)?\s*([A-Za-z0-9_.]{2,30})', t, re.IGNORECASE)
+    mpost = re.search(r'(?:post|publica[çc][ãa]o)\s+([A-Za-z0-9_-]{5,30})', t, re.IGNORECASE)
+    url = 'https://www.instagram.com'
+    if re.search(r'\b(?:mensagem|dm|direct|conversa)', chave):
+        m = re.search(r'(?:do|da|de|com|with|to)\s+(.+)', t, re.IGNORECASE)
+        url = 'https://www.instagram.com/direct/inbox/'
+        if m:
+            url += '?q=' + urllib.parse.quote(m.group(1).strip())
+    elif mperf:
+        url = 'https://www.instagram.com/' + mperf.group(1).strip('.').lstrip('@') + '/'
+    elif mpost:
+        url = 'https://www.instagram.com/p/' + mpost.group(1) + '/'
+    elif re.search(r'stor', chave):
+        url = 'https://www.instagram.com/stories/'
+    return url
+
+
 class Commands:
     def __init__(self, fs, voice=None):
         self.fs = fs
@@ -221,11 +348,12 @@ class Commands:
         return self._chat_free(text, lang), lang
 
     def _abrir(self, alvo, lang):
-        # Normaliza pedidos como "abra o site da NASA" -> "nasa"
-        limpo = re.sub(r'^(?:o\s+|a\s+)?(?:site|pagina|p[áa]gina|p[áa]g)\s+(?:da|do|de|doa?|pel[oa]|para|pra|to)?\s*',
-                       '', alvo.strip(), flags=re.IGNORECASE).strip()
-        if limpo:
-            alvo = limpo
+        """Abre DE VERDADE: programa instalado > site oficial > Google (último recurso)."""
+        alvo = (alvo or '').strip()
+        alvo = re.sub(r'(?:o\s+|a\s+)?(?:site|pagina|p[áa]gina|p[áa]g|app|aplicativo|aplica[çc][ãa]o)\s+(?:do\s+|da\s+|de\s+|pel[oa]\s+|para\s+|pra\s+|to\s+)?\s*',
+                      '', alvo, flags=re.IGNORECASE).strip()
+        alvo = re.sub(r'^(?:o|a|os|as|meu|minha)\s+', '', alvo, flags=re.IGNORECASE).strip()
+
         mapa = {
             'youtube': 'https://www.youtube.com',
             'instagram': 'https://www.instagram.com',
@@ -236,7 +364,7 @@ class Commands:
             'google': 'https://www.google.com',
             'github': 'https://github.com',
         }
-        chave = alvo.lower()
+        chave = (alvo or '').lower()
         if chave in mapa:
             webbrowser.open(mapa[chave])
             return self._t(f"Abrindo {alvo} no navegador.", f"Opening {alvo} in browser.", lang)
@@ -252,34 +380,34 @@ class Commands:
             webbrowser.open('https://www.youtube.com')
             return self._t("Abrindo YouTube no navegador.", "Opening YouTube in browser.", lang)
 
-        if 'instagram' in chave or 'whatsapp' in chave:
+        # ---- INSTAGRAM de verdade: perfil / post / stories / mensagem ----
+        if 'instagram' in chave:
+            url = _url_instagram(alvo)
+            webbrowser.open(url)
+            return self._t(f"Abrindo Instagram: {url}.", f"Opening Instagram: {url}.", lang)
+
+        if 'whatsapp' in chave:
             m = re.search(r'(?:do|da|de|com|with|to)\s+(.+)', alvo, re.IGNORECASE)
             nome = m.group(1).strip() if m else ''
-            if 'instagram' in chave:
-                url = 'https://www.instagram.com/direct/inbox/'
-                if nome:
-                    url += '?q=' + urllib.parse.quote(nome)
-                webbrowser.open(url)
-                return self._t(
-                    f"Abrindo Instagram. Procure a conversa de {nome} e digite a mensagem.",
-                    f"Opening Instagram. Look for {nome}'s conversation and type the message.",
-                    lang
-                )
-            if 'whatsapp' in chave:
-                url = 'https://web.whatsapp.com'
-                if nome:
-                    url += '?search=' + urllib.parse.quote(nome)
-                webbrowser.open(url)
-                return self._t(
-                    f"Abrindo WhatsApp Web. Procure {nome} e envie a mensagem.",
-                    f"Opening WhatsApp Web. Look for {nome} and send the message.",
-                    lang
-                )
-
-        if '.' in alvo and not alvo.startswith('http'):
-            url = 'https://' + alvo if not alvo.startswith('www.') else 'https://' + alvo
+            url = 'https://web.whatsapp.com'
+            if nome:
+                url += '?search=' + urllib.parse.quote(nome)
             webbrowser.open(url)
-            return self._t(f"Abrindo {alvo}.", f"Opening {alvo}.", lang)
+            return self._t(f"Abrindo WhatsApp Web. Procure {nome} e envie a mensagem.",
+                           f"Opening WhatsApp Web. Look for {nome} and send the message.", lang)
+
+        # ---- PROGRAMA INSTALADO DE VERDADE (acesso total) ----
+        if _executar_programa(chave, alvo):
+            return self._t(f"Abri o programa {alvo}.", f"Opened the {alvo} app.", lang)
+
+        # ---- URL direta (domínio que o usuário citou) ----
+        m = re.search(r'(?:https?://)?(?:www\.)?[a-z0-9-]+\.[a-z]{2,}(?:/\S*)?', alvo, re.IGNORECASE)
+        if m and ' ' not in m.group(0).strip():
+            url = m.group(0)
+            if not url.startswith('http'):
+                url = 'https://' + url
+            webbrowser.open(url)
+            return self._t(f"Abrindo {url}.", f"Opening {url}.", lang)
         webbrowser.open('https://www.google.com/search?q=' + urllib.parse.quote(alvo))
         return self._t(f"Buscando {alvo} no Google.", f"Searching {alvo} on Google.", lang)
 
