@@ -380,7 +380,7 @@ async function micLoop() {
         }
       }
     } catch (e) {}
-    await new Promise(r => setTimeout(r, 650));
+    await new Promise(r => setTimeout(r, 250));
   }
 }
 function syncMicBtn() { $('btnSpeak').classList.toggle('on', micOn); $('btnSpeak').textContent = micOn ? '◉ MIC ON — TOCAR P/ PARAR' : '◉ CLICK TO SPEAK'; tickState(); }

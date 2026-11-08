@@ -1,6 +1,7 @@
 import os
 import sys
 import ctypes
+import time
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -78,7 +79,12 @@ def voice_stop():
 @app.post("/voice/listen")
 def voice_listen():
     try:
-        text = voice.listen_once(timeout=4, phrase_time_limit=12)
+        limite = time.time() + 6
+        while not voice.mic_ok and time.time() < limite:
+            time.sleep(0.25)
+        if not voice.mic_ok:
+            return {"text": "", "error": "microfone indisponível"}
+        text = voice.wait_for_text(wait=7)
         return {"text": text}
     except Exception as e:
         return {"text": "", "error": str(e)}

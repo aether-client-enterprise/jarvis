@@ -1,28 +1,36 @@
 # language: Python, file: jarvis/voice.py
-# Reconhecimento de fala + síntese de voz interrompível + troca de voz (Jarvis)
+# Ouvinte CONTÍNUO em thread própria (resposta imediata quando você para de falar)
+# + síntese de voz interrompível + troca de voz salva em voice_config.json
+import difflib
 import json
 import os
 import threading
+import time
+from collections import deque
 
 import speech_recognition as sr
 import pyttsx3
 
 CONFIG = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'voice_config.json')
 
+WAKE_TOKENS = ['ok jarvis', 'hey jarvis', 'jarvis', 'oi jarvis', 'e ai jarvis']
+
 
 class Voice:
     def __init__(self):
         self.recognizer = sr.Recognizer()
         self.recognizer.dynamic_energy_threshold = True
+        self.recognizer.pause_threshold = 0.6        # reage logo que você para de falar
+        try:
+            self.recognizer.non_speaking_duration = 0.35
+        except Exception:
+            pass
         self.microphone = sr.Microphone()
-        self._mic_busy = threading.Event()
         self._ambient_done = False
-        self._speak_thread = None
-        self._speaking_flag = False
 
         engine = pyttsx3.init()
         self._voices = engine.getProperty('voices')
-        del engine  # fala usa engine próprio por thread
+        del engine  # a fala usa motor próprio por thread
 
         self.config = {'voice_id': None, 'rate': 185}
         self._load_config()
@@ -30,7 +38,90 @@ class Voice:
             self.config['voice_id'] = self._pick_voice('pt')
             self._save_config()
 
-    # ---------- utilidades ----------
+        # ---------- ouvinte contínuo ----------
+        self._texts = deque(maxlen=8)            # [(ts, texto)]
+        self._speak_thread = None
+        self._speaking_flag = False
+        self.mic_ok = False
+        self._listener = threading.Thread(target=self._listen_loop, daemon=True)
+        self._listener.start()
+
+    # ================= ESCUTA CONTÍNUA =================
+    def _listen_loop(self):
+        """Abre o microfone UMA vez e fica escutando para sempre.
+        Cada fala reconhecida entra na fila; /voice/listen só pega da fila."""
+        try:
+            with self.microphone as source:
+                self.recognizer.adjust_for_ambient_noise(source, duration=0.7)
+                self._ambient_done = True
+                self.mic_ok = True
+                while True:
+                    try:
+                        audio = self.recognizer.listen(source, timeout=None, phrase_time_limit=12)
+                    except Exception:
+                        time.sleep(0.3)
+                        continue
+                    texto = self._recognize(audio)
+                    if not texto:
+                        continue
+                    if self.is_speaking():
+                        # durante a fala do Jarvis: só interrupção com wake word (evita eco de si mesmo)
+                        if self._is_wake_text(texto):
+                            self.stop_speaking()
+                            self._push(texto)
+                        continue
+                    self._push(texto)
+        except Exception:
+            self.mic_ok = False  # sem microfone: endpoints avisam
+
+    def _recognize(self, audio):
+        try:
+            return self.recognizer.recognize_google(audio, language='pt-BR')
+        except Exception:
+            try:
+                return self.recognizer.recognize_google(audio, language='en-US')
+            except Exception:
+                return ''
+
+    def _push(self, texto):
+        with self._lock_texts:
+            self._texts.append((time.time(), texto.strip()))
+
+    _lock_texts = threading.Lock()
+
+    def _is_wake_text(self, texto):
+        low = texto.lower().strip()
+        if any(w in low for w in WAKE_TOKENS):
+            return True
+        # flexível: "ok jackson", "hey jarbas" etc. contam como wake
+        tk = low.split()
+        for i, w in enumerate(tk):
+            close = difflib.get_close_matches(w, ['jarvis'], n=1, cutoff=0.7)
+            if close and i > 0 and tk[i - 1] in ('ok', 'hey', 'oi', 'ola', 'olá', 'e', 'ei'):
+                return True
+            if close and i == 0:
+                return True
+        return False
+
+    def wait_for_text(self, wait=7):
+        """Bloqueia até chegar uma fala reconhecida (ou devolve vazio). Só textos recentes (<10s)."""
+        limite = time.time() + wait
+        while time.time() < limite:
+            with self._lock_texts:
+                agora = time.time()
+                while self._texts and (self._texts[0][0] < agora - 10 or self._texts[0][1] is None):
+                    self._texts.popleft()
+                if self._texts:
+                    _, t = self._texts.popleft()
+                    return t
+            time.sleep(0.05)
+        return ''
+
+    def listen_once(self, timeout=4, phrase_time_limit=12):
+        """Compatibilidade: espera um texto novo da fila do ouvinte contínuo."""
+        return self.wait_for_text(wait=max(3, timeout))
+
+    # ================= CONFIG DE VOZ =================
     def _voice_props(self, v):
         return ((v.name or '') + ' ' + (v.id or '')).lower()
 
@@ -64,7 +155,6 @@ class Voice:
             pass
 
     def select_voice(self, voice_id, rate=None):
-        """Escolhe a voz salva em voice_config.json (persiste entre reinícios)."""
         if voice_id:
             if not any(v.id == voice_id for v in self._voices):
                 return {'error': 'Voz não encontrada'}
@@ -77,31 +167,8 @@ class Voice:
         self._save_config()
         return {'ok': True, 'voice_id': self.config['voice_id'], 'rate': self.config['rate']}
 
-    # ---------- escuta ----------
-    def listen_once(self, timeout=4, phrase_time_limit=12):
-        """Ouve uma fala. Ajuste de ruído de ambiente só na primeira vez (mais rápido)."""
-        if self._last_engine is not None:
-            self.stop_speaking()  # barge-in: usuário falou, pare a voz atual
-        self._mic_busy.set()
-        try:
-            with self.microphone as source:
-                if not self._ambient_done:
-                    self.recognizer.adjust_for_ambient_noise(source, duration=0.6)
-                    self._ambient_done = True
-                audio = self.recognizer.listen(source, timeout=timeout, phrase_time_limit=phrase_time_limit)
-        finally:
-            self._mic_busy.clear()
-        try:
-            return self.recognizer.recognize_google(audio, language='pt-BR')
-        except Exception:
-            try:
-                return self.recognizer.recognize_google(audio, language='en-US')
-            except Exception:
-                return ''
-
-    # ---------- fala (thread própria + interrompível) ----------
+    # ================= FALA (thread própria + interrompível) =================
     def speak(self, text, lang='auto'):
-        """Fala em background. Nova fala corta a anterior na hora."""
         self.stop_speaking()
         t = threading.Thread(target=self._speak_job, args=(text, lang), daemon=True)
         self._speak_thread = t
@@ -127,12 +194,12 @@ class Voice:
         finally:
             self._last_engine = None
             self._speaking_flag = False
+            time.sleep(0.15)  # entre o fim da fala e a retomada da escuta (evita capturar o final do som)
 
     def is_speaking(self):
         return bool(getattr(self, '_speaking_flag', False))
 
     def stop_speaking(self):
-        """Interrompe a fala atual imediatamente."""
         eng = getattr(self, '_last_engine', None)
         if eng is not None:
             try:
