@@ -269,7 +269,7 @@ $('meuAvatar').onclick = function () {
 };
 
 var Likes = parseInt(CONF.likes, 10) || 128;
-function curtir() { if (!ModPerm) { toast('\ud83d\udca5 Apenas moderadores curtem aqui'); return; } Likes += 1; toast('\u2764\ufe0f ' + fmt(Likes) + ' curtidas! Obrigado(a), voce curtiu!'); beep(true); }
+function curtir() { if (!ModPerm && !AuthUser) { toast('\ud83d\udca5 Apenas moderadores curtem aqui'); return; } Likes += 1; toast('\u2764\ufe0f ' + fmt(Likes) + ' curtidas! Obrigado(a), voce curtiu!'); beep(true); }
 $('btnLike').onclick = curtir;
 $('btnSubChat').onclick = function () {
   if (!ModPerm) { toast('\ud83d\udca5 Apenas moderadores inscrevem aqui'); return; }
@@ -281,7 +281,7 @@ $('btnSubChat').onclick = function () {
 function enviarLocal() {
   var t = elInput.value.trim();
   if (!t) return;
-  if (!ModPerm) { toast('🚫 Apenas moderadores podem falar na live'); return; }
+  if (!ModPerm && !AuthUser) { toast('🚫 Apenas moderadores podem falar na live'); return; }
   var nome = AuthUser || 'convidado_84';
   var cor = CORES[rnd(CORES.length)];
   pushMsg('<span class="badge-msg badge-voce">V</span><b class="usuario" style="color:' + cor + '">' + nome + '</b>: ' +
@@ -327,7 +327,7 @@ $('mFechar').onclick = function () { elMestre.classList.add('oculto'); };
 document.addEventListener('keydown', function (e) {
   var tag = (e.target && e.target.tagName) || '';
   if (tag === 'INPUT' || tag === 'TEXTAREA') return;
-  if (e.key === 'p' || e.key === 'P') elMestre.classList.toggle('oculto');
+  if (e.key === 'p' || e.key === 'P') { if (ModPerm) elMestre.classList.toggle('oculto'); }
   if (e.key === 'b' || e.key === 'B') elTrola.classList.toggle('oculto');
 });
 
