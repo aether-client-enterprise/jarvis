@@ -36,12 +36,12 @@ var CANAIS = [
 var CONF = { nome: 'RaioGamer', titulo: 'RADANDO!! ATÉ A META — 🎯 HOT HARD (dia 7)', cat: 'Minecraft RPG',
   viewers: 15412, vel: 4, seg: 150000, meta: 30000, ritmo: 3, crescer: true, bannerImg: '', perfilImg: '', canalImg: '' };
 try {
-  var salvo = localStorage.getItem('twitchfake_conf');
+  var salvo = localStorage.getItem('twichfake_conf');
   if (salvo) { CONF = Object.assign(CONF, JSON.parse(salvo)); }
 } catch (e) { /* pode ficar vazia */ }
 
 function salvarConf() {
-  try { localStorage.setItem('twitchfake_conf', JSON.stringify(CONF)); } catch (e) { }
+  try { localStorage.setItem('twichfake_conf', JSON.stringify(CONF)); } catch (e) { }
 }
 
 /* ---------- refs ---------- */
@@ -147,7 +147,7 @@ function encerrarLive() {
   var lp = $('livePill');
   if (lp) { lp.textContent = '\u2b13 OFFLINE'; lp.classList.add('off'); }
   pushMsg('A transmiss\u00e3o de ' + CONF.nome + ' acabou. Volte em breve \ud83d\ude4f', 'sistema');
-  document.title = 'Twitch';
+  document.title = 'Twich';
   toast('\ud83d\udcf4 Live encerrada! (a galera vai chorar \ud83d\ude2d)');
 }
 function voltarLive() {
@@ -228,8 +228,8 @@ $('btnFollow').onclick = function () {
 };
 
 /* ---------- envio do chat ---------- */
-var AuthUser = (function () { try { return localStorage.getItem('twitchfake_auth') || ''; } catch (e) { return ''; } })();
-function setAuthUser(n) { AuthUser = n || ''; try { localStorage.setItem('twitchfake_auth', n); } catch (e) { } }
+var AuthUser = (function () { try { return localStorage.getItem('twichfake_auth') || ''; } catch (e) { return ''; } })();
+function setAuthUser(n) { AuthUser = n || ''; try { localStorage.setItem('twichfake_auth', n); } catch (e) { } }
 function abrirLogin() { $('loginPag').classList.remove('oculto'); $('loginUser').value = AuthUser; }
 function loginOkFn() {
   var n = ($('loginUser').value || '').trim();
@@ -789,7 +789,7 @@ document.addEventListener('keydown', function (e) {
 });
 
 /* =====================================================================
-   SISTEMA DE COMANDOS DE VOZ + CANAL 150K (perfil equal Twitch) + APIs
+   SISTEMA DE COMANDOS DE VOZ + CANAL 150K (perfil equal Twich) + APIs
    ===================================================================== */
 var DESPEDIDA = ['gg man, foi top', 'vlw pela live familia', 'ate amanha familia', 'fui :(', 'live braba hoje rs',
   'vlw pelo stream', 'melhor live da semana', 'ate o proximo rs', '(: uma triste se deprara', 'gg, vou dormir'];
@@ -848,7 +848,7 @@ function reacaoComando(t) {
   return false; /* nao bateu comando: IA genrica reage */
 }
 
-/* ---------- PERFIL / CANAL (pagina igual Twitch) ---------- */
+/* ---------- PERFIL / CANAL (pagina igual Twich) ---------- */
 function abrirPerfi() {
   $('pfNome').innerHTML = CONF.nome + ' <span class="pf-check">\u2714</span>';
   $('pfSeguidores').textContent = segFmt(CONF.seg) + ' seguidores';

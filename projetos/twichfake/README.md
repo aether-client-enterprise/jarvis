@@ -1,4 +1,4 @@
-# Twich Fake 🟣 (paródia para troçar os amigos)
+# Twich 🟣 (paródia para troçar os amigos)
 
 Plataforma estilo streaming AO VIVO — **não é real**: chat vivo aleatório, 15k+ espectadores,
 raids, badges, doações, ecos do jogo e a imagem ao vivo — tudo simulado.
@@ -7,7 +7,7 @@ raids, badges, doações, ecos do jogo e a imagem ao vivo — tudo simulado.
 
 Depois de subir no GitHub Pages, o link fica assim (e pode ser usado pra qualquer pessoa entrar na live):
 
-**https://aether-client-enterprise.github.io/jarvis/projetos/twitchfake/**
+**https://aether-client-enterprise.github.io/jarvis/projetos/twichfake/**
 
 - Qualquer pessoa que abrir esse link entra na **"transmissão"** (com o chat simulado e bots comentando).
 - **Entrar na live:** clique no ícone de usuário (👤) do topo → digite um nick (conta fake) → vira viewer real da live.
@@ -25,7 +25,7 @@ Depois de subir no GitHub Pages, o link fica assim (e pode ser usado pra qualque
 2. **Modo cinema (mais convincente):** copie o endereço do arquivo e rode no Terminal:
 
    ```powershell
-   chrome --kiosk "file:///C:/Users/joilton/Downloads/Jarvis/Projetos/twitchfake_08112026-1826/index.html"
+   chrome --kiosk "file:///C:/Users/joilton/Downloads/Jarvis/Projetos/twichfake_08112026-1826/index.html"
    ```
 
    (com a URL: sem barra de endereço nem abas — parece o app real)
@@ -54,7 +54,7 @@ Você pode digitar no chat e, inclusive, receber respostas.
 4. No seletor do navegador, escolha a **aba/janela do Ometv** → ela aparece como a "transmissão" ao vivo, com o chat rodando em cima. O gameplay fake de canvas some enquanto compartilha.
 
 Dica: para parecer ainda mais real, rode por localhost:
-`python -m http.server 8080 --directory "C:\Users\joilton\Downloads\Jarvis\Projetos\twitchfake_08112026-1826"` e abra `http://localhost:8080`.
+`python -m http.server 8080 --directory "C:\Users\joilton\Downloads\Jarvis\Projetos\twichfake_08112026-1826"` e abra `http://localhost:8080`.
 
 ---
 Projeto criado pelo Jarvis ✦. Sinta seu chat movendo, sons de doação e raids caindo de vez em vez.
