@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="pt-BR" data-padrao="1">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Twitch — Streaming AO VIVO</title>
+<link rel="icon" type="image/svg+xml" href="assets/twitch-purple.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/style.css">
+<script src="js/script.js" defer></script>
+</head>
+<body>
+
+<header class="topo">
+  <span class="logo-chip"><img class="logo-img" src="assets/twitch.svg" alt="Twitch"></span>
+  <nav class="navz">
+    <a class="on" href="#">Seguindo</a>
+    <a href="#">Procurar</a>
+    <button class="ic-topo" title="Mais"><svg class="ic-s" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5.5" r="1.9"/><circle cx="12" cy="12" r="1.9"/><circle cx="12" cy="18.5" r="1.9"/></svg></button>
+  </nav>
+  <div class="busca-topo">
+    <input placeholder="Buscar" aria-label="buscar">
+    <button title="buscar"><svg class="ic-s" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.6 15.6L21 21"/></svg></button>
+  </div>
+  <div class="direita">
+    <button class="ic-topo" title="Prime Gaming"><svg class="ic-s" viewBox="0 0 24 24" fill="currentColor"><path d="M4 8.5l4.5 3.6L12 4.4l3.5 7.7L20 8.5 18.6 18.6H5.4z"/></svg></button>
+    <button class="ic-topo inbox" title="Caixa de entrada"><svg class="ic-s" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3.5 6.5l8.5 6.5 8.5-6.5"/></svg><span class="nbadge">16</span></button>
+    <button class="ic-topo" title="Sussurros"><svg class="ic-s" viewBox="0 0 24 24" fill="currentColor"><path d="M4 4h16v12H9.5L4 21z"/></svg></button>
+    <button class="btn-bits" title="Bits"><svg class="ic-s" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2.5L21.5 12 12 21.5 2.5 12z"/></svg>Obter Bits</button>
+    <div class="avatar-topo" id="meuAvatar" title="Você"></div>
+  </div>
+</header>
+
+<div class="corpo">
+  <!-- ==== RAIL lateral fino ==== -->
+  <aside class="rail">
+    <button class="rail-heart" title="Canais que você segue"><svg class="ic-s" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20.5C7.5 17 3.5 13.4 3.5 9.6 3.5 6.8 5.7 4.6 8.3 4.6c1.7 0 3.1.9 3.7 2.1.6-1.2 2-2.1 3.7-2.1 2.6 0 4.8 2.2 4.8 5 0 3.8-4 7.4-8.5 10.9z"/></svg></button>
+    <div id="railAvatars" class="rail-avs"></div>
+    <div class="rail-baixo">
+      <button class="rail-ic" title="Expandir"><svg class="ic-s" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="14" rx="2"/><path d="M7 20h10"/></svg></button>
+      <button class="rail-ic" title="Transmitir"><svg class="ic-s" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2.5" y="7" width="13" height="10" rx="2"/><path d="M15.5 11l6-3v8l-6-3z"/></svg></button>
+    </div>
+  </aside>
+
+  <!-- ==== PRINCIPAL ==== -->
+  <main class="principal">
+    <section class="palco">
+      <canvas id="canLive" width="1280" height="720"></canvas>
+      <video id="vidCompart" class="oculto" autoplay muted playsinline></video>
+
+      <div id="adSlot" class="ad-slot oculto">
+        <b class="ad-h">A mistura perfeita de gift e card. 🧔</b>
+        <a class="ad-link" href="#" onclick="return false">Compre um gift card agora ↗</a>
+        <div class="ad-pat"></div>
+      </div>
+
+      <div class="hud-topo">
+        <span class="live-dot" id="livePill">● AO VIVO</span>
+        <span id="streamTimer">00:00:00</span>
+        <button id="btnTela" class="btn-tela"><svg class="ic-s" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M9.5 19.5h5M12 16v3.5"/></svg>Compartilhar tela</button>
+        <button id="micBtn" class="btn-tela" title="Voz do streamer (V)"><svg class="ic-s" viewBox="0 0 24 24" fill="currentColor"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M6 11a6 6 0 0 0 12 0h-2a4 4 0 0 1-8 0z"/><rect x="11" y="17.5" width="2" height="4.5"/></svg>🎤</button>
+      </div>
+      <div id="micPill" class="mic-pill oculto">🎙️ OUVINDO A VOZ DO STREAMER…</div>
+      <div class="hud-jogo">
+        <div class="fps-liso">144 FPS</div>
+        <div class="minimapa"></div>
+      </div>
+
+      <div id="trolaBanner" class="trola-banner oculto">
+        <strong>PARÓDIA 🤪</strong><p>Isso é uma brincadeira com meus amigos — nada aqui é real :)</p>
+      </div>
+      <div id="raidBanner" class="raid-banner oculto">
+        <strong>Raid!</strong><p id="raidTexto">MarcosDoido trouxe 1.240 pessoas!</p>
+      </div>
+
+      <div id="offScreen" class="of-screen oculto">
+        <img id="offAvatar" alt="avatar do canal">
+        <b id="offNome">RaioGamer</b>
+        <p>A transmissão acabou. Volte em breve!</p>
+        <button id="mVoltar2">▶️ Voltar ao vivo</button>
+      </div>
+
+      <div id="hypeTrain" class="hype-trein oculto">🔥 HYPE TRAIN · NÍVEL <b id="hypeIdx">5</b></div>
+
+      <div class="ctrl-barra">
+        <button id="btnVol" class="ctrl-ic" title="Som"><svg class="ic-s" viewBox="0 0 24 24" fill="currentColor"><path d="M4 9v6h4l5 4V5L8 9z"/><path d="M16.5 8.5a5 5 0 0 1 0 7" fill="none" stroke="currentColor" stroke-width="1.8"/></svg></button>
+        <input id="volRange" class="ctrl-range" type="range" min="0" max="100" value="70" title="Volume">
+        <span class="ctrl-qual">1080p60 (fonte)</span>
+        <div class="ctrl-dir">
+          <button class="ctrl-ic" id="btnConf" title="Configurações"><svg class="ic-s" viewBox="0 0 24 24" fill="currentColor"><path d="M12 8.6a3.4 3.4 0 1 0 0 6.8 3.4 3.4 0 0 0 0-6.8zm7.6 5.1l1.9 1.5-1.8 3.2-2.3-.7a6.9 6.9 0 0 1-1.7 1l-.4 2.4h-3.6l-.4-2.4a6.9 6.9 0 0 1-1.7-1l-2.3.7-1.8-3.2 1.9-1.5a7.4 7.4 0 0 1 0-1.9L2.5 10l1.8-3.2 2.3.7a6.9 6.9 0 0 1 1.7-1l.4-2.4h3.6l.4 2.4a6.9 6.9 0 0 1 1.7 1l2.3-.7L18.5 10l-1.9 1.7a7.4 7.4 0 0 1 0 2z"/></svg></button>
+          <button class="ctrl-ic" id="btnTeatro" title="Modo teatro"><svg class="ic-s" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="7" width="18" height="10" rx="2"/></svg></button>
+          <button class="ctrl-ic" id="btnFS" title="Tela cheia"><svg class="ic-s" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5"/></svg></button>
+        </div>
+      </div>
+    </section>
+
+    <section class="info-stream">
+      <div class="avatar-wrap">
+        <img id="imgAvatar" class="avatar" src="" alt="avatar do streamer">
+        <span class="live-pill">LIVE</span>
+      </div>
+      <div class="info-txt">
+        <h1 id="nomeStreamer">RaioGamer</h1>
+        <span class="verificado" title="canal verificado"><svg class="ic-s ok" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l2.4 2 3.1-.4 1.2 2.9 2.9 1.2-.4 3.1L23 12l-1.8 1.2.4 3.1-2.9 1.2-1.2 2.9-3.1-.4L12 22l-2.4-2-3.1.4-1.2-2.9-2.9-1.2.4-3.1L1 12l1.8-1.2-.4-3.1 2.9-1.2 1.2-2.9 3.1.4zM10.6 15.4l5.7-5.7-1.4-1.4-4.3 4.3-2.1-2.1-1.4 1.4z"/></svg></span>
+        <p class="titulo-stream" id="tituloStream">RADANDO!! ATÉ A META — 🎯 HOT HARD (dia 7)</p>
+        <p class="cat-stream"><a href="#">Just Chatting</a> <span class="tag">PT-BR</span><span class="tag">Conversa</span></p>
+      </div>
+      <div class="info-direita">
+        <div class="info-acoes">
+          <button class="btn-quadr" id="btnSeguir" title="Seguir"><svg class="ic-s" viewBox="0 0 24 24" fill="currentColor"><path d="M12 20.5C7.5 17 3.5 13.4 3.5 9.6 3.5 6.8 5.7 4.6 8.3 4.6c1.7 0 3.1.9 3.7 2.1.6-1.2 2-2.1 3.7-2.1 2.6 0 4.8 2.2 4.8 5 0 3.8-4 7.4-8.5 10.9z"/></svg></button>
+          <button class="btn-quadr" id="btnSino" title="Notificações do canal"><svg class="ic-s" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9a6 6 0 0 1 12 0v3.8l1.7 2.8a.8.8 0 0 1-.7 1.4H5a.8.8 0 0 1-.7-1.4L6 12.8z"/><path d="M9.8 19.5a2.3 2.3 0 0 0 4.4 0"/></svg></button>
+          <button class="btn-quadr" id="btnPresente" title="Presentear Sub"><svg class="ic-s" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="8" width="16" height="4" rx="1"/><rect x="6" y="12" width="12" height="9" rx="1"/><path d="M12 8v13M8.5 8a2.5 2.5 0 1 1 1.8-4.2C11.3 5 12 8 12 8s.7-3 1.7-4.2A2.5 2.5 0 1 1 15.5 8z"/></svg></button>
+          <div class="sub-wrap">
+            <button class="btn-lilas" id="btnFollow"><svg class="ic-s" viewBox="0 0 24 24" fill="currentColor"><path d="M12 3.5l2.6 5.5 6 .8-4.4 4.2 1.1 6L12 17.2 6.7 20l1.1-6L3.4 9.8l6-.8z"/></svg>Inscrever-se</button>
+            <button class="btn-lilas setinha" title="Planos"><svg class="ic-s" viewBox="0 0 24 24" fill="currentColor"><path d="M6.5 9.5L12 15l5.5-5.5z"/></svg></button>
+          </div>
+        </div>
+        <div class="info-meta">
+          <span class="meta-v"><svg width="15" height="15" viewBox="0 0 16 16" fill="#e91916"><path d="M8 8a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM2.5 15c0-3.3 2.5-5.6 5.5-5.6s5.5 2.3 5.5 5.6h-11z"/></svg><b id="viewCount">15.412</b></span>
+          <span id="streamTimer2" class="meta-t">1:58:43</span>
+          <button class="ic-meta" id="btnCompart" title="Compartilhar"><svg class="ic-s" viewBox="0 0 24 24" fill="currentColor"><path d="M12 3l5 5.4h-3.2V15.5h-3.6V8.4H7z"/><rect x="5" y="17" width="14" height="3" rx="1"/></svg></button>
+          <button class="ic-meta" id="btnMais" title="Mais"><svg class="ic-s" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="5.5" r="1.9"/><circle cx="12" cy="12" r="1.9"/><circle cx="12" cy="18.5" r="1.9"/></svg></button>
+        </div>
+      </div>
+    </section>
+
+    <section class="sobre-stream">
+      <h3>Sobre o canal</h3>
+      <p id="sobreTxt">Partidas em zona de treta, histórias e muita risada. Meta do canal: 1k 🔥</p>
+      <div class="regua-subs">
+        <div class="barra-subs"><div class="preench" style="width:72%"></div></div>
+        <span>Meta do streamer: 72% batida!</span>
+      </div>
+    </section>
+  </main>
+
+  <!-- ==== CHAT ==== -->
+  <section class="chat">
+    <div class="chat-topo">
+      <button class="ic-min" id="btnChatMin" title="Recolher chat"><svg class="ic-s" viewBox="0 0 24 24" fill="currentColor"><rect x="3.5" y="5.5" width="9" height="13" rx="1.5"/><path d="M14.5 12l5.5-4v8z"/></svg></button>
+      <span class="chat-titulo">CHAT DA TRANSMISSÃO</span>
+      <button id="chatPpls" class="btn-mini" title="Usuários no chat"><svg class="ic-s" viewBox="0 0 24 24" fill="currentColor"><circle cx="9" cy="8" r="3.4"/><path d="M2.5 19c.6-3.2 3.3-5 6.5-5s5.9 1.8 6.5 5z"/><circle cx="17" cy="9" r="2.6"/><path d="M16 14.2c2.6.3 4.6 2 5.1 4.8h-3.4z"/></svg>4.8k</button>
+      <div id="pillPontos" class="pill-pontos" title="Pontos do canal"><svg class="ic-s" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l4 2.4"/></svg><b>+50 pts</b></div>
+    </div>
+    <div id="pinMsg" class="pin-msg oculto">📌 <span>Mensagem fixada pelo streamer: <b>bem-vindos, sem spam 🙂</b></span></div>
+    <div class="chat-msgs" id="chatMsgs"></div>
+    <div class="chat-envio">
+      <input id="chatInput" placeholder="Enviar mensagem" maxlength="150" autocomplete="off">
+      <button class="in-ic" title="Bits"><svg class="ic-s" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2.5L21.5 12 12 21.5 2.5 12z"/></svg></button>
+      <button id="chatEmote" class="in-ic" title="Emotes"><svg class="ic-s" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M8.5 14.5a4.5 4.5 0 0 0 7 0"/><circle cx="9" cy="10" r="1.2" fill="currentColor" stroke="none"/><circle cx="15" cy="10" r="1.2" fill="currentColor" stroke="none"/></svg></button>
+    </div>
+    <div id="emoteGrid" class="emote-grid oculto"></div>
+    <div class="chat-baixo">
+      <span class="p500" title="Pontos do canal"><svg class="ic-s" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l4 2.4"/></svg><b>500</b></span>
+      <div class="baixo-dir">
+        <button class="ic-chat" id="btnGear" title="Configurações do chat"><svg class="ic-s" viewBox="0 0 24 24" fill="currentColor"><path d="M12 8.6a3.4 3.4 0 1 0 0 6.8 3.4 3.4 0 0 0 0-6.8zm7.6 5.1l1.9 1.5-1.8 3.2-2.3-.7a6.9 6.9 0 0 1-1.7 1l-.4 2.4h-3.6l-.4-2.4a6.9 6.9 0 0 1-1.7-1l-2.3.7-1.8-3.2 1.9-1.5a7.4 7.4 0 0 1 0-1.9L2.5 10l1.8-3.2 2.3.7a6.9 6.9 0 0 1 1.7-1l.4-2.4h3.6l.4 2.4a6.9 6.9 0 0 1 1.7 1l2.3-.7L18.5 10l-1.9 1.7a7.4 7.4 0 0 1 0 2z"/></svg></button>
+        <button id="chatSend" class="btn-chat-go">Chat</button>
+      </div>
+    </div>
+  </section>
+</div>
+
+<!-- Painel do MESTRE da treta (tecla P) -->
+<div id="mestre" class="panel-mestre oculto">
+  <h3>⚙️ Painel do Mestre</h3>
+  <div class="mgrid2">
+    <label>Nome do streamer<input id="mNome"></label>
+    <label>Categoria<input id="mCat"></label>
+  </div>
+  <label>Título da transmissão<input id="mTitulo"></label>
+
+  <div class="mst-sec">👥 ESPECTADORES (motor de crescimento)</div>
+  <div class="mgrid3">
+    <label>Agora<input id="mLive" disabled></label>
+    <label>Meta<input id="mMeta" type="number" value="30000" min="1000"></label>
+    <label>Ritmo<input id="mRitmo" type="number" value="3" min="1" max="20" title="multiplicador do crescimento"></label>
+  </div>
+  <div class="mlinha">
+    <label class="chk"><input type="checkbox" id="mCresce" checked> crescer sozinho até a meta</label>
+    <button id="mImp">🚀 Impulsionar +2k</button>
+  </div>
+  <label>Velocidade do chat <input id="mVelocidade" type="range" min="1" max="12" value="4"></label>
+
+  <div class="mst-sec">📈 PÚBLICO (aumentar agora)</div>
+  <div class="mestre-btns">
+    <button id="mB1">+1k</button>
+    <button id="mB5">+5k</button>
+    <button id="mB10">+10k</button>
+    <button id="mViral">🔥 Modo viral</button>
+  </div>
+
+  <div class="mst-sec">▶️ TRANSMISSÃO</div>
+  <div class="mestre-btns">
+    <button id="mEncerrar" class="enc">⏹ Encerrar live (E)</button>
+    <button id="mVoltar">▶️ Voltar ao vivo (R)</button>
+  </div>
+
+  <div class="mst-sec">🧠 IA AO VIVO — o chat reage ao que VOCÊ falar</div>
+  <div class="mlinha">
+    <button id="mMic">🎙️ Ligar voz (tecla V)</button>
+  </div>
+  <div id="mFala" class="m-fala"></div>
+  <p class="mst-hint">Comandos de voz: <b>"digita <i>gg</i> no chat família"</b> · <b>"manda next"</b> · <b>"vou encerrar a live família"</b> · <b>"chama o valorant"</b> · <b>"oi família"</b> · <b>"quero os 30k"</b></p>
+  <label>🎯 Ou escreva o que aconteceu<input id="mCtx" placeholder="ex: cai de novo no next, agora uma gata"></label>
+  <div class="mestre-btns">
+    <button id="mIA">🧠 Reagir (texto)</button>
+    <button id="mW1">😍</button><button id="mW2">❓</button><button id="mW3">🤪</button><button id="mW4">🔥</button>
+  </div>
+
+  <div class="mst-sec">📺 CANAL (perfil tipo Twitch)</div>
+  <label>Seguidores<input id="mSeg" type="number" value="150000" min="0"></label>
+  <div class="mestre-btns">
+    <button id="mPerfil" class="go">👁️ Ver meu canal</button>
+  </div>
+
+  <div class="mst-sec">✨ UP ANTO DE DIVULGAÇÃO</div>
+  <div class="mestre-btns">
+    <button id="btnPick">🖼️ Foto de perfil (IA)</button>
+    <button id="mRaid">🚀 Raid</button>
+  </div>
+  <div class="mestre-btns">
+    <button id="mSalvar">💾 Salvar</button>
+    <button id="mFechar">✕</button>
+  </div>
+  <p class="mestre-nota">Teclas: <strong>P</strong> painel · <strong>B</strong> treta · <strong>V</strong> voz · <strong>1/2/3/4</strong> ondas · <strong>E</strong> encerra · <strong>R</strong> volta</p>
+</div>
+
+<!-- Janela de foto de perfil (IA) -->
+<div id="avatarPick" class="modal-av oculto">
+  <div class="modal-box">
+    <h3>🖼️ Trocar foto de perfil</h3>
+    <div class="mst-sec">PRONTOS (clique para usar)</div>
+    <div class="av-grid" id="gridPerfil"></div>
+    <div class="mst-sec">…e também para o AVATAR DO CANAL</div>
+    <div class="av-grid" id="gridCanal"></div>
+    <div class="mst-sec">✨ A IA FAZ SUA FOTO PERSONALIZADA</div>
+    <div class="av-linha">
+      <input id="avPrompt" placeholder="ex: eu de oculos sorrindo, estilo anime roxo">
+      <button id="avGerar" class="go">Gerar</button>
+    </div>
+    <div class="mst-sec">📤 SUA PRÓPRIA FOTO (do PC)</div>
+    <div class="av-linha"><input type="file" id="avFile" accept="image/*" class="av-file"></div>
+    <div id="avPrevWrap" class="av-prev oculto">
+      <img id="avPreview" alt="prévia">
+      <div class="ap-btns">
+        <button id="avUsaPerfil" class="go">Usar no meu perfil</button>
+        <button id="avUsaCanal" class="go">Usar no canal</button>
+      </div>
+    </div>
+    <div class="mestre-btns"><button id="avFechar">✕ Fechar</button></div>
+  </div>
+</div>
+
+<!-- Página de canal (igual Twitch) -->
+<div id="perfilPag" class="modal-av oculto">
+  <div class="perfil-box">
+    <div class="pf-banner" id="pfBanner">
+      <div class="pf-banner-btns">
+        <button id="pfTrocaBanner" class="pf-edit">🖼️ Banner do PC</button>
+        <button id="pfBannerIA" class="pf-edit">✨ Banner por IA</button>
+      </div>
+      <input type="file" id="pfBannerFile" accept="image/*" style="display:none">
+    </div>
+    <div class="pf-head">
+      <img id="pfAvatar" class="pf-av" alt="avatar do canal">
+      <div class="pf-ident">
+        <h2 id="pfNome">RaioGamer <span class="pf-check">✔</span></h2>
+        <div class="pf-subline">
+          <span id="pfLiveChip" class="pf-livechip">● AO VIVO</span>
+          <span id="pfSeguidores" class="pf-segs">150 mil seguidores</span>
+          <span id="pfCat2" class="pf-cat2">Just Chatting</span>
+        </div>
+      </div>
+      <div class="pf-acoes">
+        <button class="btn-quadr" id="pfSeguir" title="Seguir">♥</button>
+        <button class="btn-lilas" id="pfSub">☆ Inscrever-se</button>
+        <button class="ic-meta pf-fecha" id="pfFecha" title="Fechar">✕</button>
+      </div>
+    </div>
+    <div class="pf-tabs">
+      <a class="on" href="#" onclick="return false">Início</a>
+      <a href="#" onclick="return false">Vídeos</a>
+      <a href="#" onclick="return false">Sobre</a>
+      <a href="#" onclick="return false">Clipes</a>
+    </div>
+    <div class="pf-body">
+      <aside class="pf-sobre">
+        <h4>Sobre o canal</h4>
+        <p id="pfSobre">Radando a meta, conversa boa e zero tédio. Paródia feita por um genio local 🧢</p>
+        <div class="pf-kv">
+          <span><b id="pfSeg2">150 mil</b> seguidores</span>
+          <span><b id="pfLive2">—</b> espectadores agora</span>
+        </div>
+      </aside>
+      <section class="pf-vods">
+        <h4>Vídeos recentes</h4>
+        <div class="vods-grid" id="vodsGrid"></div>
+      </section>
+    </div>
+  </div>
+</div>
+
+<div id="toasts" class="toasts"></div>
+
+</body>
+</html>
