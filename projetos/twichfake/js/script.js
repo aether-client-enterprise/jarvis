@@ -238,6 +238,7 @@ function loginOkFn() {
   $('loginPag').classList.add('oculto');
   elInput.placeholder = 'mandar mensagem...';
   toast('\ud83d\udc4b Entrada liberada, ' + n + '!');
+  pushMsg('<b class="usuario" style="color:#8ea0ff">' + n + '</b>: <span class="msg-txt">entrou na live 👋</span>', 'sistema');
 }
 $('btnEntrar').onclick = abrirLogin;
 $('loginOk').onclick = loginOkFn;
