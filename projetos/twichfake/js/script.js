@@ -242,6 +242,28 @@ function loginOkFn() {
 $('btnEntrar').onclick = abrirLogin;
 $('loginOk').onclick = loginOkFn;
 
+/* ---------- LINK DA LIVE (copiar pra mandar a galera entrar) ---------- */
+function linkLive() {
+  var base = (location.href || '').split('?')[0];
+  var l = base + '?nick=' + encodeURIComponent((CONF.nome || 'RaioGamer'));
+  var t = $('mLinkTxt'); if (t) t.value = l; return l;
+}
+$('mLink').onclick = function () {
+  var l = linkLive();
+  try { navigator.clipboard.writeText(l); } catch (e) { var ta = document.createElement('textarea'); ta.value = l; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); ta.remove(); }
+  toast('🔗 Link da live copiado! Envie pro amigo: ' + l);
+};
+var nickUrl = (function () { try { return new URLSearchParams(location.search || '').get('nick') || ''; } catch (e) { return ''; } })();
+if (nickUrl) { $('loginUser').value = nickUrl; $('loginPag').classList.remove('oculto'); }
+$('meuAvatar').onclick = function () {
+  if (AuthUser) {
+    var slug = AuthUser.toLowerCase().replace(/[^a-z0-9]/g, '') || 'raio';
+    try { window.open('https://www.twitch.tv/' + encodeURIComponent(slug), '_blank'); return; } catch (e) { }
+    return;
+  }
+  abrirPerfi();
+};
+
 var Likes = parseInt(CONF.likes, 10) || 128;
 function curtir() { Likes += 1; toast('\u2764\ufe0f ' + fmt(Likes) + ' curtidas! Obrigado(a), voce curtiu!'); beep(true); }
 $('btnLike').onclick = curtir;
