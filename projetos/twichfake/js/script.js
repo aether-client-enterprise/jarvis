@@ -133,6 +133,7 @@ var CrescerAuto = (CONF.crescer !== false);
 var FezMarcos = {};
 var LiveOn = true;
 var ViralMode = false;
+var ModPerm = true; /* dono da live (streamer) tem mod; quem entra via link fica como viewer */
 
 function encerrarLive() {
   if (!LiveOn) return;
@@ -234,10 +235,12 @@ function abrirLogin() { $('loginPag').classList.remove('oculto'); $('loginUser')
 function loginOkFn() {
   var n = ($('loginUser').value || '').trim();
   if (!n) return;
+  var pw = $('loginPw') ? ($('loginPw').value || '').trim() : '';
   setAuthUser(n);
+  ModPerm = false;
   $('loginPag').classList.add('oculto');
   elInput.placeholder = 'mandar mensagem...';
-  toast('\ud83d\udc4b Entrada liberada, ' + n + '!');
+  toast('\ud83d\udc4b Entrada liberada, ' + n + '! (só assistindo por enquanto)');
   pushMsg('<b class="usuario" style="color:#8ea0ff">' + n + '</b>: <span class="msg-txt">entrou na live 👋</span>', 'sistema');
 }
 $('btnEntrar').onclick = abrirLogin;
@@ -266,9 +269,10 @@ $('meuAvatar').onclick = function () {
 };
 
 var Likes = parseInt(CONF.likes, 10) || 128;
-function curtir() { Likes += 1; toast('\u2764\ufe0f ' + fmt(Likes) + ' curtidas! Obrigado(a), voce curtiu!'); beep(true); }
+function curtir() { if (!ModPerm) { toast('\ud83d\udca5 Apenas moderadores curtem aqui'); return; } Likes += 1; toast('\u2764\ufe0f ' + fmt(Likes) + ' curtidas! Obrigado(a), voce curtiu!'); beep(true); }
 $('btnLike').onclick = curtir;
 $('btnSubChat').onclick = function () {
+  if (!ModPerm) { toast('\ud83d\udca5 Apenas moderadores inscrevem aqui'); return; }
   toast('\u2b50 Inscri\u00e7\u00e3o fake ativada! Obrigado pela par\u00f3dia, ' + (AuthUser || 'amigo') + '!');
   pushMsg(badgeHtml('x') + '<b class="usuario" style="color:#c79bff">' + (AuthUser || CONF.nome) + '</b>: <span class="msg-txt">OBRIGADO PELO SUB AMIGO!! \ud83d\udc99</span>', 'donate');
   beep(true);
@@ -277,6 +281,7 @@ $('btnSubChat').onclick = function () {
 function enviarLocal() {
   var t = elInput.value.trim();
   if (!t) return;
+  if (!ModPerm) { toast('🚫 Apenas moderadores podem falar na live'); return; }
   var nome = AuthUser || 'convidado_84';
   var cor = CORES[rnd(CORES.length)];
   pushMsg('<span class="badge-msg badge-voce">V</span><b class="usuario" style="color:' + cor + '">' + nome + '</b>: ' +
