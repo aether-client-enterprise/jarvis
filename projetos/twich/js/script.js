@@ -134,6 +134,14 @@ var FezMarcos = {};
 var LiveOn = true;
 var ViralMode = false;
 var ModPerm = true; /* dono da live (streamer) tem mod; quem entra via link fica como viewer */
+var Compart = false; /* streamer compartilhando tela (Ometv) no palco */
+function updWait() {
+  var ws = $('waitScreen');
+  if (!ws) return;
+  var show = !!(AuthUser && !ModPerm && !Compart);
+  if (show) { $('waitAvatar').src = elAvatar.src; $('waitNome').textContent = CONF.nome; $('waitTxt').textContent = 'O transmiss\u00e3o est\u00e1 offline no momento... aguardem a pr\u00f3xima transmiss\u00e3o!'; ws.classList.remove('oculto'); }
+  else { ws.classList.add('oculto'); }
+}
 
 function encerrarLive() {
   if (!LiveOn) return;
@@ -231,7 +239,7 @@ $('btnFollow').onclick = function () {
 /* ---------- envio do chat ---------- */
 var AuthUser = (function () { try { return localStorage.getItem('twichfake_auth') || ''; } catch (e) { return ''; } })();
 function setAuthUser(n) { AuthUser = n || ''; try { localStorage.setItem('twichfake_auth', n); } catch (e) { } }
-function abrirLogin() { $('loginPag').classList.remove('oculto'); $('loginUser').value = AuthUser; }
+function abrirLogin() { $('loginPag').classList.remove('oculto'); $('loginUser').value = AuthUser; var lc = $('loginCanalNome'); if (lc) lc.textContent = CONF.nome; }
 function loginOkFn() {
   var n = ($('loginUser').value || '').trim();
   if (!n) return;
@@ -411,9 +419,12 @@ function pararTela() {
   if (document.fullscreenElement) { try { document.exitFullscreen(); } catch (e) { } }
   document.querySelector('.palco').classList.remove('share-on');
   $('btnTela').textContent = '\ud83d\udda5\ufe0f Compartilhar tela';
+  Compart = false;
+  updWait();
 }
 
 $('btnTela').onclick = function () {
+  if (AuthUser && !ModPerm) { toast('🚫 Apenas o transmissor pode compartilhar a tela'); return; }
   var vid = $('vidCompart');
   if (vid.srcObject) { pararTela(); return; }
   if (!navigator.mediaDevices || !navigator.mediaDevices.getDisplayMedia) {
@@ -427,6 +438,8 @@ $('btnTela').onclick = function () {
     var pais = document.querySelector('.palco');
     try { if (pais.requestFullscreen) pais.requestFullscreen().catch(function () { }); } catch (e) { }
     $('btnTela').textContent = '\u23f9\ufe0f Parar transmiss\u00e3o';
+    Compart = true;
+    updWait();
     var trk = stream.getVideoTracks()[0];
     if (trk && trk.addEventListener) trk.addEventListener('ended', pararTela);
     toast('\ud83d\udda5\ufe0f Sua tela (Ometv) esta no ar como transmissao!');

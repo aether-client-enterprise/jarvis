@@ -7,7 +7,7 @@ raids, badges, doações, ecos do jogo e a imagem ao vivo — tudo simulado.
 
 Depois de subir no GitHub Pages, o link fica assim (e pode ser usado pra qualquer pessoa entrar na live):
 
-**https://aether-client-enterprise.github.io/jarvis/projetos/twichfake/**
+**https://aether-client-enterprise.github.io/jarvis/projetos/twich/**
 
 - Qualquer pessoa que abrir esse link entra na **"transmissão"** (com o chat simulado e bots comentando).
 - **Entrar na live:** clique no ícone de usuário (👤) do topo → digite um nick (conta fake) → vira viewer real da live.
