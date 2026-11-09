@@ -228,15 +228,40 @@ $('btnFollow').onclick = function () {
 };
 
 /* ---------- envio do chat ---------- */
+var AuthUser = (function () { try { return localStorage.getItem('twitchfake_auth') || ''; } catch (e) { return ''; } })();
+function setAuthUser(n) { AuthUser = n || ''; try { localStorage.setItem('twitchfake_auth', n); } catch (e) { } }
+function abrirLogin() { $('loginPag').classList.remove('oculto'); $('loginUser').value = AuthUser; }
+function loginOkFn() {
+  var n = ($('loginUser').value || '').trim();
+  if (!n) return;
+  setAuthUser(n);
+  $('loginPag').classList.add('oculto');
+  elInput.placeholder = 'mandar mensagem...';
+  toast('\ud83d\udc4b Entrada liberada, ' + n + '!');
+}
+$('btnEntrar').onclick = abrirLogin;
+$('loginOk').onclick = loginOkFn;
+
+var Likes = parseInt(CONF.likes, 10) || 128;
+function curtir() { Likes += 1; toast('\u2764\ufe0f ' + fmt(Likes) + ' curtidas! Obrigado(a), voce curtiu!'); beep(true); }
+$('btnLike').onclick = curtir;
+$('btnSubChat').onclick = function () {
+  toast('\u2b50 Inscri\u00e7\u00e3o fake ativada! Obrigado pela par\u00f3dia, ' + (AuthUser || 'amigo') + '!');
+  pushMsg(badgeHtml('x') + '<b class="usuario" style="color:#c79bff">' + (AuthUser || CONF.nome) + '</b>: <span class="msg-txt">OBRIGADO PELO SUB AMIGO!! \ud83d\udc99</span>', 'donate');
+  beep(true);
+};
+
 function enviarLocal() {
   var t = elInput.value.trim();
   if (!t) return;
-  pushMsg('<span class="badge-msg badge-voce">V</span><b class="usuario" style="color:#8ea0ff">convidado_84</b>: ' +
+  var nome = AuthUser || 'convidado_84';
+  var cor = CORES[rnd(CORES.length)];
+  pushMsg('<span class="badge-msg badge-voce">V</span><b class="usuario" style="color:' + cor + '">' + nome + '</b>: ' +
     '<span class="msg-txt">' + t.replace(/</g, '&lt;') + '</span>');
   elInput.value = '';
   var delay = 900 + rnd(2400);
   setTimeout(function () {
-    var resp = pick(['kkkk resposta foda', 'verdade! @convidado_84', 'concordo total', 'kkk kkk cala boca \ud83d\ude02']);
+    var resp = pick(['kkkk resposta foda', 'verdade! @' + nome, 'concordo total', 'kkk kkk cala boca \ud83d\ude02']);
     pushMsg(badgeHtml('x') + '<b class="usuario" style="color:' + pick(CORES) + '">' + pick(USERS) + '</b>: <span class="msg-txt">' + resp + '</span>');
   }, delay);
 }
@@ -291,6 +316,8 @@ document.addEventListener('keydown', function (e) {
       avUrl('gamer portrait avatar, purple neon, stylized', i * 7 + 3) + '\'">' +
       (live ? '<span class="av-live">LIVE</span>' : '');
     b.onclick = function () {
+      /* clique no streamer leva DIRETO pro twitch real (mantem o segredo da parodia) */
+      try { window.open('https://www.twitch.tv/' + encodeURIComponent(c[3] || c[0]), '_blank'); return; } catch (e) { }
       CONF.nome = c[0]; CONF.cat = c[1]; CONF.viewers = Math.max(1200, c[2]);
       salvarConf(); aplicou();
       toast('\ud83c\udfa5 Trocou para ' + c[0] + ' ao vivo!');

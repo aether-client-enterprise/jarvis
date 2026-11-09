@@ -3,6 +3,23 @@
 Plataforma estilo streaming AO VIVO — **não é real**: chat vivo aleatório, 15k+ espectadores,
 raids, badges, doações, ecos do jogo e a imagem ao vivo — tudo simulado.
 
+## 🌐 Link hospedado no GitHub (para a galera entrar na "live")
+
+Depois de subir no GitHub Pages, o link fica assim (e pode ser usado pra qualquer pessoa entrar na live):
+
+**https://aether-client-enterprise.github.io/jarvis/projetos/twitchfake/**
+
+- Qualquer pessoa que abrir esse link entra na **"transmissão"** (com o chat simulado e bots comentando).
+- **Entrar na live:** clique no ícone de usuário (👤) do topo → digite um nick (conta fake) → vira viewer real da live.
+- **Comentar:** manda na barra de chat (input no rodapé) com o nick que entrou.
+- **Curtir:** botão ❤️ no topo do chat → conta fake "curteu".
+- **Inscrever:** botão ☆ no topo do chat → conta fake "inscreveu".
+- **Streamer clica em streamer do rail →** abre direto o **twitch.tv real** da pessoa (pra manter o segredo da paródia).
+
+> Para ativar: no GitHub, **Settings → Pages → Source: main branch / (root)** → Save. Aguarda ~1 min e o link acima fica vivo. (Desfarçado: tá no subpasta `projetos/twitchfake`, parece um site qualquer.)
+
+---
+
 ## Como rodar
 1. Dá dois cliques em `index.html` (Chrome/Edge).
 2. **Modo cinema (mais convincente):** copie o endereço do arquivo e rode no Terminal:
