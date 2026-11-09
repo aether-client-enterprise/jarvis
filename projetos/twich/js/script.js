@@ -142,6 +142,12 @@ function updWait() {
   if (show) { $('waitAvatar').src = elAvatar.src; $('waitNome').textContent = CONF.nome; $('waitTxt').textContent = 'O transmiss\u00e3o est\u00e1 offline no momento... aguardem a pr\u00f3xima transmiss\u00e3o!'; ws.classList.remove('oculto'); }
   else { ws.classList.add('oculto'); }
 }
+function updHud() {
+  var isViewer = !!(AuthUser && !ModPerm);
+  var b1 = $('btnTela'), b2 = $('micBtn');
+  if (b1) b1.style.display = isViewer ? 'none' : '';
+  if (b2) b2.style.display = isViewer ? 'none' : '';
+}
 
 function encerrarLive() {
   if (!LiveOn) return;
@@ -246,6 +252,7 @@ function loginOkFn() {
   var pw = $('loginPw') ? ($('loginPw').value || '').trim() : '';
   setAuthUser(n);
   ModPerm = false;
+  updHud();
   $('loginPag').classList.add('oculto');
   elInput.placeholder = 'mandar mensagem...';
   toast('\ud83d\udc4b Entrada liberada, ' + n + '! (só assistindo por enquanto)');
