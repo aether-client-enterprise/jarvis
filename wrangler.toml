@@ -1,6 +1,8 @@
 name = "jarvis"
 compatibility_date = "2025-09-01"
 
+routes = ["twich.com"]
+
 [assets]
 directory = "./projetos/twich"
 not_found_handling = "single-page-application"
