@@ -20,6 +20,22 @@ Depois de subir no GitHub Pages, o link fica assim (e pode ser usado pra qualque
 
 ---
 
+## ☁️ Hospedagem no Cloudflare (Workers + Static Assets)
+
+Estrutura criada: `wrangler.toml` na raiz do repo → `[assets] directory = "./projetos/twich"` → o deploy passa a hospedar **só o site do Twich**.
+
+- Worker: `jarvis`
+- Assets: `./projetos/twich`
+- Build: `npx wrangler deploy`
+
+Depois no Cloudflare Dashboard → Workers → `jarvis` → Settings → Builds → ajustar:
+- **Build command:** `npx wrangler deploy`
+- **Deploy command:** `npx wrangler deploy` (padrão)
+
+URL final (Workers): `https://jarvis.<seu-subdominio>.workers.dev/?nick=<nick>`
+
+---
+
 ## Como rodar
 1. Dá dois cliques em `index.html` (Chrome/Edge).
 2. **Modo cinema (mais convincente):** copie o endereço do arquivo e rode no Terminal:

@@ -148,6 +148,15 @@ function updHud() {
   if (b1) b1.style.display = isViewer ? 'none' : '';
   if (b2) b2.style.display = isViewer ? 'none' : '';
 }
+function updTopProfile() {
+  var b = $('meuAvatar');
+  if (!b) return;
+  if (AuthUser && !ModPerm) {
+    var seed = (AuthUser || '').toLowerCase().replace(/[^a-z0-9]/g, '') || 'raio';
+    b.style.backgroundImage = 'url(' + avUrl('gamer portrait avatar, purple neon, stylized', seed.length * 7 + 99) + ')';
+    b.style.backgroundSize = 'cover';
+  }
+}
 
 function encerrarLive() {
   if (!LiveOn) return;
@@ -253,6 +262,8 @@ function loginOkFn() {
   setAuthUser(n);
   ModPerm = false;
   updHud();
+  updTopProfile();
+  updWait();
   $('loginPag').classList.add('oculto');
   elInput.placeholder = 'mandar mensagem...';
   toast('\ud83d\udc4b Entrada liberada, ' + n + '! (só assistindo por enquanto)');
