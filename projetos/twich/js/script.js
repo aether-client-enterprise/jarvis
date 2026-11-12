@@ -254,7 +254,7 @@ $('btnFollow').onclick = function () {
 /* ---------- envio do chat ---------- */
 var AuthUser = (function () { try { return localStorage.getItem('twichfake_auth') || ''; } catch (e) { return ''; } })();
 function setAuthUser(n) { AuthUser = n || ''; try { localStorage.setItem('twichfake_auth', n); } catch (e) { } }
-function abrirLogin() { $('loginPag').classList.remove('oculto'); $('loginUser').value = AuthUser; var lc = $('loginCanalNome'); if (lc) lc.textContent = CONF.nome; }
+function abrirLogin() { var lp = $('loginPag'); lp.classList.remove('oculto'); $('loginUser').value = AuthUser; var lc = $('loginCanalNome'); if (lc) lc.textContent = CONF.nome; void lp.offsetWidth; lp.classList.add('animando'); }
 function loginOkFn() {
   var n = ($('loginUser').value || '').trim();
   if (!n) return;

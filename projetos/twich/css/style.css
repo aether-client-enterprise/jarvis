@@ -230,6 +230,9 @@ svg.ic-s{width:18px;height:18px;display:block}
 
 /* janela de avatar */
 .modal-av{position:fixed;inset:0;background:rgba(0,0,0,.74);z-index:60;display:flex;align-items:center;justify-content:center}
+#loginPag{background:rgba(0,0,0,.55);backdrop-filter:blur(7px)}
+#loginPag.animando .perfil-box{animation: zoomInLogin .35s ease}
+@keyframes zoomInLogin { from { transform: scale(0.92); opacity: 0.4; } to { transform: scale(1); opacity: 1; } }
 svg.ic-s{width:18px;height:18px;display:block}
 .palco.share-on #vidCompart{object-fit:cover}
 .av-file{flex:1;color:var(--tx2);font-size:.72rem}
