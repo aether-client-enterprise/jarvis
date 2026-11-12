@@ -138,7 +138,7 @@ var Compart = false; /* streamer compartilhando tela (Ometv) no palco */
 function updWait() {
   var ws = $('waitScreen');
   if (!ws) return;
-  var show = !!(AuthUser && !ModPerm && !Compart);
+  var show = !!(AuthUser && !ModPerm && !LiveOn);
   if (show) { $('waitAvatar').src = elAvatar.src; $('waitNome').textContent = CONF.nome; $('waitTxt').textContent = 'O transmiss\u00e3o est\u00e1 offline no momento... aguardem a pr\u00f3xima transmiss\u00e3o!'; ws.classList.remove('oculto'); }
   else { ws.classList.add('oculto'); }
 }
